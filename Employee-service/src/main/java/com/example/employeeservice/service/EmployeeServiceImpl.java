@@ -1,20 +1,22 @@
 package com.example.employeeservice.service;
 
 import com.example.employeeservice.abstraction.EmployeeService;
-import com.example.employeeservice.dtos.*;
+import com.example.employeeservice.dtos.CreateEmployeeDTO;
+import com.example.employeeservice.dtos.EmployeeCreatedEvent;
+import com.example.employeeservice.dtos.EmployeeResponse;
+import com.example.employeeservice.dtos.EmployeeResponseDTO;
+import com.example.employeeservice.dtos.UpdateEmployeeDTO;
 import com.example.employeeservice.entity.Employee;
 import com.example.employeeservice.entity.Outbox;
 import com.example.employeeservice.gateway.DepartmentGateway;
 import com.example.employeeservice.mapper.Mapper;
 import com.example.employeeservice.repo.EmployeeRepo;
 import com.example.employeeservice.repo.OutboxRepo;
-import com.example.shared.monitoring.MetricsProvider;
 import com.example.shared.events.EmployeeSagaEvent;
+import com.example.shared.monitoring.MetricsProvider;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import core.CustomResponseException;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
@@ -25,7 +27,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
+
+import core.CustomResponseException;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
@@ -102,9 +109,10 @@ public class EmployeeServiceImpl implements EmployeeService {
     @Transactional
     @Override
     public EmployeeResponseDTO createEmployee(CreateEmployeeDTO createEmployeeDTO) {
+        // todo move validation for department outside transaction
         metricsProvider.incrementCounter("employee.create.request");
         var response = departmentGateway.getDepartment(createEmployeeDTO.departmentId()).getBody();
-        
+
         if (response == null || response.data == null || "UNKNOWN_DEPARTMENT".equals(response.data.name())) {
             metricsProvider.incrementCounter("employee.create.error", "reason", "department_not_found");
             throw CustomResponseException.ResourceNotFound("Department with Id " + createEmployeeDTO.departmentId() + " not found or unavailable");
@@ -140,33 +148,42 @@ public class EmployeeServiceImpl implements EmployeeService {
         );
 
         try {
-            outboxRepo.save(Outbox.builder()
-                    .aggregateId(savedEmployee.getId().toString())
-                    .aggregateType("Employee")
-                    .eventType("EmployeeCreated")
-                    .payload(objectMapper.writeValueAsString(notificationEvent))
-                    .createdAt(Instant.now())
-                    .processed(false)
-                    .build());
+            outboxRepo.saveAll(
+                    // todo add event type to enum + event creation into a helper
+                    List.of(
+                            Outbox.builder()
+                                    .aggregateId(savedEmployee.getId().toString())
+                                    .aggregateType("Employee")
+                                    .eventType("EmployeeCreated")
+                                    .eventId(UUID.randomUUID())
+                                    .payload(objectMapper.writeValueAsString(notificationEvent))
+                                    .createdAt(Instant.now())
+                                    .processed(false)
+                                    .build()
+                            ,
+                            Outbox.builder()
+                                    .aggregateId(savedEmployee.getId().toString())
+                                    .aggregateType("Employee")
+                                    .eventType("EmployeeSagaStart")
+                                    .eventId(UUID.randomUUID())
+                                    .payload(objectMapper.writeValueAsString(sagaEvent))
+                                    .createdAt(Instant.now())
+                                    .processed(false)
+                                    .build()
+                    )
+            );
 
-            outboxRepo.save(Outbox.builder()
-                    .aggregateId(savedEmployee.getId().toString())
-                    .aggregateType("Employee")
-                    .eventType("EmployeeSagaStart")
-                    .payload(objectMapper.writeValueAsString(sagaEvent))
-                    .createdAt(Instant.now())
-                    .processed(false)
-                    .build());
 
         } catch (JsonProcessingException e) {
             log.error("Failed to serialize events", e);
-            throw new RuntimeException("Internal Server Error during event serialization");
+            throw CustomResponseException.BadRequest("Internal Server Error during event serialization");
         }
 
         metricsProvider.incrementCounter("employee.create.success");
         return Mapper.toResponseDTO(savedEmployee);
     }
 
+    // todo two caching key fix
     @Override
     @Cacheable(value = "employees", key = "#token")
     public EmployeeResponse findByToken(String token) {

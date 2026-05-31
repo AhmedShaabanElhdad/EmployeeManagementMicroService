@@ -6,8 +6,8 @@ import com.example.employeeservice.message.publisher.EmployeeEventPublisher;
 import com.example.employeeservice.repo.OutboxRepo;
 import com.example.shared.monitoring.MetricsProvider;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,12 +15,16 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.util.List;
 
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class OutboxProcessor {
 
     private final OutboxRepo outboxRepo;
+    private final KafkaTemplate<String, Object> kafkaTemplate;
     private final EmployeeEventPublisher eventPublisher;
     private final ObjectMapper objectMapper;
     private final MetricsProvider metricsProvider;
@@ -29,7 +33,7 @@ public class OutboxProcessor {
     @Transactional
     public void processOutboxEvents() {
         List<Outbox> unprocessedEvents = outboxRepo.findByProcessedFalse();
-        
+
         // Record the current size of pending events (Gauge)
         metricsProvider.recordMetric("outbox.pending.size", unprocessedEvents.size());
 
@@ -42,7 +46,7 @@ public class OutboxProcessor {
                     EmployeeSagaEvent sagaPayload = objectMapper.readValue(event.getPayload(), EmployeeSagaEvent.class);
                     kafkaTemplate.send("employee-saga-topic", sagaPayload);
                 }
-                
+
                 event.setProcessed(true);
                 event.setProcessedAt(Instant.now());
                 outboxRepo.save(event);

@@ -1,12 +1,13 @@
 package com.example.shared.monitoring;
 
-import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.core.instrument.Timer;
-import lombok.RequiredArgsConstructor;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
+
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
@@ -17,6 +18,7 @@ public class MicrometerMetricsAdapter implements MetricsProvider {
 
     @Override
     public void recordMetric(String name, double value, String... tags) {
+        // todo add Atomic for mutable object
         meterRegistry.gauge(name, value);
     }
 
