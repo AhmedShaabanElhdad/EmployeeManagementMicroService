@@ -5,6 +5,7 @@ COPY gradlew .
 COPY gradle gradle
 COPY build.gradle .
 COPY settings.gradle .
+COPY shared shared
 COPY api-gateway api-gateway
 
 RUN ./gradlew :api-gateway:assemble -x test

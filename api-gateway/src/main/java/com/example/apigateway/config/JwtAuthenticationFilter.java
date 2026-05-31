@@ -13,6 +13,7 @@ import org.springframework.web.server.WebFilter;
 import org.springframework.web.server.WebFilterChain;
 import reactor.core.publisher.Mono;
 
+import java.util.Set;
 import java.util.UUID;
 
 @Component
@@ -32,8 +33,13 @@ public class JwtAuthenticationFilter implements WebFilter {
         metricsProvider.incrementCounter("gateway.request.received", "path", path, "method", method);
 
         log.info("Incoming request {} {}", method, exchange.getRequest().getURI());
+        Set<String> publicEndpoints = Set.of(
+                "/api/v1/auth/login",
+                "/api/v1/auth/signup",
+                "/api/v1/auth/refresh"
+        );
 
-        if (path.contains("/api/v1/auth/login") || path.contains("/api/v1/auth/signup")) {
+        if (publicEndpoints.contains(path))
             return chain.filter(exchange);
         }
 
@@ -57,6 +63,7 @@ public class JwtAuthenticationFilter implements WebFilter {
         ServerHttpRequest mutatedRequest = exchange.getRequest().mutate()
                 .header("X-User-Id", claims.get("userId", String.class))
                 .header("X-Correlation-Id", correlationId)
+                // todo check role tradeoff
                 .header("X-Role", claims.get("role", String.class))
                 .build();
 
