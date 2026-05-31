@@ -25,6 +25,12 @@ public class RouteConfig {
 
                 .route("auth-service", route -> route
                         .path("/api/v1/auth/**")
+                        .filters(f -> f
+                                .circuitBreaker(config -> config
+                                        .setName("authServiceCircuitBreaker")
+                                        .setFallbackUri("forward:/fallback/auth")
+                                )
+                        )
                         .uri("lb://auth-service")
                 )
 
@@ -49,6 +55,12 @@ public class RouteConfig {
 
                 .route("department-service", route -> route
                         .path("/api/v1/departments/**")
+                        .filters(f -> f
+                                .circuitBreaker(config -> config
+                                        .setName("departmentServiceCircuitBreaker")
+                                        .setFallbackUri("forward:/fallback/department")
+                                )
+                        )
                         .uri("lb://department-service")
                 )
 
