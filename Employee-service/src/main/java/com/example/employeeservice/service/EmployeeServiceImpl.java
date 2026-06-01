@@ -7,10 +7,12 @@ import com.example.employeeservice.dtos.EmployeeResponse;
 import com.example.employeeservice.dtos.EmployeeResponseDTO;
 import com.example.employeeservice.dtos.UpdateEmployeeDTO;
 import com.example.employeeservice.entity.Employee;
+import com.example.employeeservice.entity.EmployeeListView;
 import com.example.employeeservice.entity.Outbox;
 import com.example.employeeservice.gateway.DepartmentGateway;
 import com.example.employeeservice.mapper.Mapper;
 import com.example.employeeservice.repo.EmployeeRepo;
+import com.example.employeeservice.repo.EmployeeQueryRepo;
 import com.example.employeeservice.repo.OutboxRepo;
 import com.example.employeeservice.query.service.EmployeeProjector;
 import com.example.shared.events.EmployeeSagaEvent;
@@ -41,6 +43,7 @@ import lombok.extern.slf4j.Slf4j;
 public class EmployeeServiceImpl implements EmployeeService {
 
     private final EmployeeRepo employeeRepo;
+    private final EmployeeQueryRepo employeeQueryRepo;
     private final OutboxRepo outboxRepo;
     private final DepartmentGateway departmentGateway;
     private final ObjectMapper objectMapper;
@@ -48,27 +51,29 @@ public class EmployeeServiceImpl implements EmployeeService {
     private final EmployeeProjector employeeProjector;
 
     @Override
-    public Page<Employee> findAll(int page, int size) {
+    public Page<EmployeeListView> findAll(int page, int size) {
         long startTime = System.currentTimeMillis();
         Pageable pageable = PageRequest.of(page, size);
-        Page<Employee> result = employeeRepo.findAll(pageable);
+        // Read from Projection
+        Page<EmployeeListView> result = employeeQueryRepo.findAll(pageable);
         metricsProvider.recordExecutionTime("employee.find.all.time", System.currentTimeMillis() - startTime);
         return result;
     }
 
     @Override
     @Cacheable(value = "employees", key = "#employeeId")
-    public EmployeeResponseDTO findEmployeeById(UUID employeeId) {
+    public EmployeeListView findEmployeeById(UUID employeeId) {
         long startTime = System.currentTimeMillis();
-        log.info("Fetching employee from DB for ID: {}", employeeId);
-        Employee employeeEntity = employeeRepo.findById(employeeId)
+        log.info("Fetching employee from Read Model for ID: {}", employeeId);
+        // Read from Projection
+        EmployeeListView employeeView = employeeQueryRepo.findById(employeeId)
                 .orElseThrow(() -> {
                     metricsProvider.incrementCounter("employee.find.error", "type", "not_found");
-                    return CustomResponseException.ResourceNotFound("Employee with Id " + employeeId + " not found");
+                    return CustomResponseException.ResourceNotFound("Employee with Id " + employeeId + " not found in Read Model");
                 });
 
         metricsProvider.recordExecutionTime("employee.find.by.id.time", System.currentTimeMillis() - startTime);
-        return Mapper.toResponseDTO(employeeEntity);
+        return employeeView;
     }
 
     @Override
@@ -119,7 +124,6 @@ public class EmployeeServiceImpl implements EmployeeService {
     @Transactional
     @Override
     public EmployeeResponseDTO createEmployee(CreateEmployeeDTO createEmployeeDTO) {
-        // todo move validation for department outside transaction
         metricsProvider.incrementCounter("employee.create.request");
         var response = departmentGateway.getDepartment(createEmployeeDTO.departmentId()).getBody();
 
@@ -162,7 +166,6 @@ public class EmployeeServiceImpl implements EmployeeService {
 
         try {
             outboxRepo.saveAll(
-                    // todo add event type to enum + event creation into a helper
                     List.of(
                             Outbox.builder()
                                     .aggregateId(savedEmployee.getId().toString())
@@ -196,7 +199,6 @@ public class EmployeeServiceImpl implements EmployeeService {
         return Mapper.toResponseDTO(savedEmployee);
     }
 
-    // todo two caching key fix
     @Override
     @Cacheable(value = "employees", key = "#token")
     public EmployeeResponse findByToken(String token) {
