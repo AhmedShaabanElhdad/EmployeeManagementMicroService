@@ -12,6 +12,7 @@ import com.example.employeeservice.gateway.DepartmentGateway;
 import com.example.employeeservice.mapper.Mapper;
 import com.example.employeeservice.repo.EmployeeRepo;
 import com.example.employeeservice.repo.OutboxRepo;
+import com.example.employeeservice.query.service.EmployeeProjector;
 import com.example.shared.events.EmployeeSagaEvent;
 import com.example.shared.monitoring.MetricsProvider;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -44,6 +45,7 @@ public class EmployeeServiceImpl implements EmployeeService {
     private final DepartmentGateway departmentGateway;
     private final ObjectMapper objectMapper;
     private final MetricsProvider metricsProvider;
+    private final EmployeeProjector employeeProjector;
 
     @Override
     public Page<Employee> findAll(int page, int size) {
@@ -91,6 +93,10 @@ public class EmployeeServiceImpl implements EmployeeService {
         updatedEmployee.setEmail(employee.email());
 
         Employee employeeEntity = employeeRepo.save(updatedEmployee);
+        
+        // Synchronize Read Model
+        employeeProjector.update(employeeEntity);
+        
         metricsProvider.incrementCounter("employee.update.success");
         return Mapper.toResponseDTO(employeeEntity);
     }
@@ -103,6 +109,10 @@ public class EmployeeServiceImpl implements EmployeeService {
             throw CustomResponseException.ResourceNotFound("Employee with Id " + employeeId + " not found");
         }
         employeeRepo.deleteById(employeeId);
+        
+        // Synchronize Read Model
+        employeeProjector.delete(employeeId);
+        
         metricsProvider.incrementCounter("employee.delete.success");
     }
 
@@ -137,6 +147,9 @@ public class EmployeeServiceImpl implements EmployeeService {
         employee.setStatus(Employee.Status.PENDING);
 
         Employee savedEmployee = employeeRepo.save(employee);
+        
+        // Synchronize Read Model (Project)
+        employeeProjector.project(savedEmployee, response.data.name());
 
         EmployeeCreatedEvent notificationEvent = new EmployeeCreatedEvent(savedEmployee.getEmail(), token);
         EmployeeSagaEvent sagaEvent = new EmployeeSagaEvent(
@@ -222,6 +235,10 @@ public class EmployeeServiceImpl implements EmployeeService {
                 .orElseThrow(() -> CustomResponseException.ResourceNotFound("Employee not found"));
         employee.setStatus(status);
         employeeRepo.save(employee);
+        
+        // Synchronize Read Model
+        employeeProjector.updateStatus(employeeId, status.name());
+
         log.info("Employee {} status updated to {}", employeeId, status);
         metricsProvider.incrementCounter("employee.status.update", "status", status.name());
     }
