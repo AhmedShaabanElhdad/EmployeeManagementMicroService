@@ -4,7 +4,7 @@ import com.example.employeeservice.abstraction.EmployeeService;
 import com.example.employeeservice.dtos.CreateEmployeeDTO;
 import com.example.employeeservice.dtos.EmployeeResponseDTO;
 import com.example.employeeservice.dtos.UpdateEmployeeDTO;
-import com.example.employeeservice.entity.Employee;
+import com.example.employeeservice.entity.EmployeeListView;
 import core.GlobalResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
@@ -24,17 +24,17 @@ public class EmployeeController {
     private final EmployeeService employeeService;
 
     @GetMapping
-    public ResponseEntity<GlobalResponse<Page<Employee>>> getEmployees(
+    public ResponseEntity<GlobalResponse<Page<EmployeeListView>>> getEmployees(
             @RequestParam(defaultValue = "0") int page,
             @Max(100) @RequestParam(defaultValue = "10") int size
     ) {
-        Page<Employee> employees = employeeService.findAll(page, size);
+        Page<EmployeeListView> employees = employeeService.findAll(page, size);
         return ResponseEntity.ok(new GlobalResponse<>(employees));
     }
 
     @GetMapping("/{employeeId}")
-    public ResponseEntity<GlobalResponse<EmployeeResponseDTO>> getEmployee(@PathVariable UUID employeeId) {
-        EmployeeResponseDTO employee = employeeService.findEmployeeById(employeeId);
+    public ResponseEntity<GlobalResponse<EmployeeListView>> getEmployee(@PathVariable UUID employeeId) {
+        EmployeeListView employee = employeeService.findEmployeeById(employeeId);
         return ResponseEntity.ok(new GlobalResponse<>(employee));
     }
 
