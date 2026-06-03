@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ems-config
+  namespace: ems-namespace
+data:
+  EUREKA_URL: "http://eureka-server:8761/eureka/"
+  RABBITMQ_HOST: "rabbitmq"
+  REDIS_HOST: "redis"
+  KAFKA_BOOTSTRAP_SERVERS: "kafka:9092"
+  ZIPKIN_URL: "http://zipkin:9411/api/v2/spans"
+  AUTH_DB_URL: "jdbc:postgresql://postgres-auth:5432/user"
+  EMPLOYEE_DB_URL: "jdbc:postgresql://postgres-employee:5432/employees"
+  DEPARTMENT_DB_URL: "jdbc:postgresql://postgres-department:5432/department"
+  PAYROLL_DB_URL: "jdbc:postgresql://postgres-payroll:5432/payroll"

@@ -1,18 +1,23 @@
 package com.example.apigateway.config;
 
-import io.jsonwebtoken.Claims;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import com.example.shared.monitoring.MetricsProvider;
+
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.WebFilter;
 import org.springframework.web.server.WebFilterChain;
-import reactor.core.publisher.Mono;
 
+import java.util.Set;
 import java.util.UUID;
+
+import io.jsonwebtoken.Claims;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import reactor.core.publisher.Mono;
 
 @Component
 @RequiredArgsConstructor
@@ -20,73 +25,64 @@ import java.util.UUID;
 public class JwtAuthenticationFilter implements WebFilter {
 
     private final JwtHelper jwtHelper;
+    private final MetricsProvider metricsProvider;
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
-        log.info(
-                "Incoming request {} {}",
-                exchange.getRequest().getMethod(),
-                exchange.getRequest().getURI()
+        long startTime = System.currentTimeMillis();
+        String path = exchange.getRequest().getURI().getPath();
+        String method = exchange.getRequest().getMethod().name();
+
+        metricsProvider.incrementCounter("gateway.request.received", "path", path, "method", method);
+
+        log.info("Incoming request {} {}", method, exchange.getRequest().getURI());
+
+        Set<String> publicEndpoints = Set.of(
+                "/api/v1/auth/login",
+                "/api/v1/auth/signup",
+                "/api/v1/auth/refresh"
         );
 
-        String path = exchange.getRequest().getURI().getPath();
-
-        if (path.contains("/api/v1/auth/login")
-                || path.contains("/api/v1/auth/signup")) {
+        if (publicEndpoints.contains(path)) {
             return chain.filter(exchange);
         }
 
-        String authHeader =
-                exchange.getRequest()
-                        .getHeaders()
-                        .getFirst(HttpHeaders.AUTHORIZATION);
+        String authHeader = exchange.getRequest().getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
 
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-
-            exchange.getResponse()
-                    .setStatusCode(HttpStatus.UNAUTHORIZED);
-
+            metricsProvider.incrementCounter("gateway.auth.error", "reason", "missing_header");
+            exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
             return exchange.getResponse().setComplete();
         }
 
         String token = authHeader.substring(7);
         Claims claims = jwtHelper.validateToken(token);
         if (claims == null) {
-            exchange.getResponse()
-                    .setStatusCode(HttpStatus.UNAUTHORIZED);
-
+            metricsProvider.incrementCounter("gateway.auth.error", "reason", "invalid_token");
+            exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
             return exchange.getResponse().setComplete();
         }
 
-        String correlationId = UUID.randomUUID().toString();
-        ServerHttpRequest mutatedRequest =
-                exchange.getRequest()
-                        .mutate()
-                        .header("X-User-Id", claims.get("userId", String.class))
-                        .header("X-Correlation-Id", correlationId)
-                        .header("X-Role", claims.get("role", String.class))
-                        .build();
-
-
-        try {
-            jwtHelper.extractUsername(token);
-        } catch (Exception ex) {
-
-            exchange.getResponse()
-                    .setStatusCode(HttpStatus.UNAUTHORIZED);
-
-            return exchange.getResponse().setComplete();
+        // Correlation ID Strategy: Check for existing ID first for end-to-end tracing
+        String correlationId = exchange.getRequest().getHeaders().getFirst("X-Correlation-Id");
+        if (correlationId == null || correlationId.isEmpty()) {
+            correlationId = UUID.randomUUID().toString();
         }
 
-        return chain.filter(exchange
-                .mutate()
-                .request(mutatedRequest)
-                .build()
-        ).then(Mono.fromRunnable(() -> {
-            log.info(
-                    "Response status: {}",
-                    exchange.getResponse().getStatusCode()
-            );
-        }));
+        ServerHttpRequest mutatedRequest = exchange.getRequest().mutate()
+                .header("X-User-Id", claims.get("userId", String.class))
+                .header("X-Correlation-Id", correlationId)
+                .header("X-Role", claims.get("role", String.class))
+                .build();
+
+        return chain.filter(exchange.mutate().request(mutatedRequest).build())
+                .then(Mono.fromRunnable(() -> {
+                    HttpStatusCode status = exchange.getResponse().getStatusCode();
+                    if (status != null) {
+                        metricsProvider.recordExecutionTime("gateway.request.processing.time",
+                                System.currentTimeMillis() - startTime, "path", path, "status", status.toString());
+                        log.info("Response status: {}", status);
+                    }
+                }));
     }
 }

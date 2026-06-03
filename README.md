@@ -4,12 +4,6 @@ A robust, production-grade Employee Management System built with Java 17, Spring
 architecture. This project demonstrates advanced distributed systems patterns including Saga, Transactional Outbox, and
 gRPC.
 
-## 🚴🏾🚴🏾🚴🏾 In Progress… System Architecture Missing
-
-1. Payroll will be added later
-2. K8s
-3. Saga Flow
-
 ## 🏗 System Architecture
 
 ```mermaid
@@ -94,7 +88,7 @@ docker compose up --build
 
 Access the system via the API Gateway at `http://localhost:8080`.
 
-### 🚴🏾🚴🏾🚴🏾 Loading... 3. Run with Kubernetes 🚴🏾
+### 3. Run with Kubernetes 🚴🏾
 
 If you have a k8s cluster (Minikube/Docker Desktop):
 

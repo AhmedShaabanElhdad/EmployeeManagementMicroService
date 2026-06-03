@@ -46,6 +46,8 @@ dependencies {
 
     testCompileOnly 'org.projectlombok:lombok'
     testAnnotationProcessor 'org.projectlombok:lombok'
+
+    implementation project(':shared')
 }
 
 tasks.named('test') {

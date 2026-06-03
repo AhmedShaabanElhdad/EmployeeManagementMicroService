@@ -28,6 +28,10 @@ import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 
+import core.CustomResponseException;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -63,7 +67,7 @@ public class AuthServiceImpl implements AuthService {
         userAccount.setUsername(signUpRequestDTO.username());
         userAccount.setPassword(passwordEncoder.encode(signUpRequestDTO.password()));
         userAccount.setEmployeeId(employee.employeeId());
-        
+
         userAccountRepo.save(userAccount);
 
         log.info("User created successfully: {}", signUpRequestDTO.username());
@@ -87,14 +91,14 @@ public class AuthServiceImpl implements AuthService {
         return Mapper.toUserResponseDTO(userAccount);
     }
 
+    // todo remove cache after logout and change role api
     @Override
     @Cacheable(value = "auth_responses", key = "#loginRequestDTO.username()", unless = "#result == null")
     public AuthResponseDTO login(LoginRequestDTO loginRequestDTO) {
-        // CPU Protection: Caching this response prevents repeated expensive BCrypt operations
         long startTime = System.currentTimeMillis();
         metricsProvider.incrementCounter("auth.login.request");
         log.info("Authenticating user: {}", loginRequestDTO.username());
-        
+
         try {
             authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(
                     loginRequestDTO.username(),
@@ -122,7 +126,7 @@ public class AuthServiceImpl implements AuthService {
         metricsProvider.incrementCounter("auth.refresh.request");
         String refreshToken = refreshTokenRequestDTO.refreshToken();
         String username = jwtHelper.extractUsername(refreshToken);
-        
+
         UserAccount userAccount = userAccountRepo.findByUserName(username)
                 .orElseThrow(CustomResponseException::BadCredential);
 
@@ -146,12 +150,12 @@ public class AuthServiceImpl implements AuthService {
         Map<String, Object> claims = new HashMap<>();
         claims.put("userId", user.getId());
         claims.put("type", type);
-        
+
         if ("access".equals(type)) {
             claims.put("role", user.getRole());
             claims.put("employeeId", user.getEmployeeId());
         }
-        
+
         return claims;
     }
 }

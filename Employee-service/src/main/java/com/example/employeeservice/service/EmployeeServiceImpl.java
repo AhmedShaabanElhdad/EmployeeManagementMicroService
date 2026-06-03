@@ -1,20 +1,25 @@
 package com.example.employeeservice.service;
 
 import com.example.employeeservice.abstraction.EmployeeService;
-import com.example.employeeservice.dtos.*;
+import com.example.employeeservice.dtos.CreateEmployeeDTO;
+import com.example.employeeservice.dtos.EmployeeCreatedEvent;
+import com.example.employeeservice.dtos.EmployeeResponse;
+import com.example.employeeservice.dtos.EmployeeResponseDTO;
+import com.example.employeeservice.dtos.UpdateEmployeeDTO;
 import com.example.employeeservice.entity.Employee;
+import com.example.employeeservice.entity.EmployeeListView;
 import com.example.employeeservice.entity.Outbox;
 import com.example.employeeservice.gateway.DepartmentGateway;
 import com.example.employeeservice.mapper.Mapper;
 import com.example.employeeservice.repo.EmployeeRepo;
+import com.example.employeeservice.repo.EmployeeQueryRepo;
 import com.example.employeeservice.repo.OutboxRepo;
-import com.example.shared.monitoring.MetricsProvider;
+import com.example.employeeservice.query.service.EmployeeProjector;
 import com.example.shared.events.EmployeeSagaEvent;
+import com.example.shared.monitoring.MetricsProvider;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import core.CustomResponseException;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
@@ -25,7 +30,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
+
+import core.CustomResponseException;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
@@ -33,33 +43,37 @@ import java.util.UUID;
 public class EmployeeServiceImpl implements EmployeeService {
 
     private final EmployeeRepo employeeRepo;
+    private final EmployeeQueryRepo employeeQueryRepo;
     private final OutboxRepo outboxRepo;
     private final DepartmentGateway departmentGateway;
     private final ObjectMapper objectMapper;
     private final MetricsProvider metricsProvider;
+    private final EmployeeProjector employeeProjector;
 
     @Override
-    public Page<Employee> findAll(int page, int size) {
+    public Page<EmployeeListView> findAll(int page, int size) {
         long startTime = System.currentTimeMillis();
         Pageable pageable = PageRequest.of(page, size);
-        Page<Employee> result = employeeRepo.findAll(pageable);
+        // Read from Projection
+        Page<EmployeeListView> result = employeeQueryRepo.findAll(pageable);
         metricsProvider.recordExecutionTime("employee.find.all.time", System.currentTimeMillis() - startTime);
         return result;
     }
 
     @Override
     @Cacheable(value = "employees", key = "#employeeId")
-    public EmployeeResponseDTO findEmployeeById(UUID employeeId) {
+    public EmployeeListView findEmployeeById(UUID employeeId) {
         long startTime = System.currentTimeMillis();
-        log.info("Fetching employee from DB for ID: {}", employeeId);
-        Employee employeeEntity = employeeRepo.findById(employeeId)
+        log.info("Fetching employee from Read Model for ID: {}", employeeId);
+        // Read from Projection
+        EmployeeListView employeeView = employeeQueryRepo.findById(employeeId)
                 .orElseThrow(() -> {
                     metricsProvider.incrementCounter("employee.find.error", "type", "not_found");
-                    return CustomResponseException.ResourceNotFound("Employee with Id " + employeeId + " not found");
+                    return CustomResponseException.ResourceNotFound("Employee with Id " + employeeId + " not found in Read Model");
                 });
 
         metricsProvider.recordExecutionTime("employee.find.by.id.time", System.currentTimeMillis() - startTime);
-        return Mapper.toResponseDTO(employeeEntity);
+        return employeeView;
     }
 
     @Override
@@ -84,6 +98,10 @@ public class EmployeeServiceImpl implements EmployeeService {
         updatedEmployee.setEmail(employee.email());
 
         Employee employeeEntity = employeeRepo.save(updatedEmployee);
+        
+        // Synchronize Read Model
+        employeeProjector.update(employeeEntity);
+        
         metricsProvider.incrementCounter("employee.update.success");
         return Mapper.toResponseDTO(employeeEntity);
     }
@@ -96,6 +114,10 @@ public class EmployeeServiceImpl implements EmployeeService {
             throw CustomResponseException.ResourceNotFound("Employee with Id " + employeeId + " not found");
         }
         employeeRepo.deleteById(employeeId);
+        
+        // Synchronize Read Model
+        employeeProjector.delete(employeeId);
+        
         metricsProvider.incrementCounter("employee.delete.success");
     }
 
@@ -104,7 +126,7 @@ public class EmployeeServiceImpl implements EmployeeService {
     public EmployeeResponseDTO createEmployee(CreateEmployeeDTO createEmployeeDTO) {
         metricsProvider.incrementCounter("employee.create.request");
         var response = departmentGateway.getDepartment(createEmployeeDTO.departmentId()).getBody();
-        
+
         if (response == null || response.data == null || "UNKNOWN_DEPARTMENT".equals(response.data.name())) {
             metricsProvider.incrementCounter("employee.create.error", "reason", "department_not_found");
             throw CustomResponseException.ResourceNotFound("Department with Id " + createEmployeeDTO.departmentId() + " not found or unavailable");
@@ -129,6 +151,9 @@ public class EmployeeServiceImpl implements EmployeeService {
         employee.setStatus(Employee.Status.PENDING);
 
         Employee savedEmployee = employeeRepo.save(employee);
+        
+        // Synchronize Read Model (Project)
+        employeeProjector.project(savedEmployee, response.data.name());
 
         EmployeeCreatedEvent notificationEvent = new EmployeeCreatedEvent(savedEmployee.getEmail(), token);
         EmployeeSagaEvent sagaEvent = new EmployeeSagaEvent(
@@ -140,27 +165,34 @@ public class EmployeeServiceImpl implements EmployeeService {
         );
 
         try {
-            outboxRepo.save(Outbox.builder()
-                    .aggregateId(savedEmployee.getId().toString())
-                    .aggregateType("Employee")
-                    .eventType("EmployeeCreated")
-                    .payload(objectMapper.writeValueAsString(notificationEvent))
-                    .createdAt(Instant.now())
-                    .processed(false)
-                    .build());
+            outboxRepo.saveAll(
+                    List.of(
+                            Outbox.builder()
+                                    .aggregateId(savedEmployee.getId().toString())
+                                    .aggregateType("Employee")
+                                    .eventType("EmployeeCreated")
+                                    .eventId(UUID.randomUUID())
+                                    .payload(objectMapper.writeValueAsString(notificationEvent))
+                                    .createdAt(Instant.now())
+                                    .processed(false)
+                                    .build()
+                            ,
+                            Outbox.builder()
+                                    .aggregateId(savedEmployee.getId().toString())
+                                    .aggregateType("Employee")
+                                    .eventType("EmployeeSagaStart")
+                                    .eventId(UUID.randomUUID())
+                                    .payload(objectMapper.writeValueAsString(sagaEvent))
+                                    .createdAt(Instant.now())
+                                    .processed(false)
+                                    .build()
+                    )
+            );
 
-            outboxRepo.save(Outbox.builder()
-                    .aggregateId(savedEmployee.getId().toString())
-                    .aggregateType("Employee")
-                    .eventType("EmployeeSagaStart")
-                    .payload(objectMapper.writeValueAsString(sagaEvent))
-                    .createdAt(Instant.now())
-                    .processed(false)
-                    .build());
 
         } catch (JsonProcessingException e) {
             log.error("Failed to serialize events", e);
-            throw new RuntimeException("Internal Server Error during event serialization");
+            throw CustomResponseException.BadRequest("Internal Server Error during event serialization");
         }
 
         metricsProvider.incrementCounter("employee.create.success");
@@ -205,6 +237,10 @@ public class EmployeeServiceImpl implements EmployeeService {
                 .orElseThrow(() -> CustomResponseException.ResourceNotFound("Employee not found"));
         employee.setStatus(status);
         employeeRepo.save(employee);
+        
+        // Synchronize Read Model
+        employeeProjector.updateStatus(employeeId, status.name());
+
         log.info("Employee {} status updated to {}", employeeId, status);
         metricsProvider.incrementCounter("employee.status.update", "status", status.name());
     }

@@ -5,15 +5,19 @@ import com.example.employeeservice.dtos.EmployeeResponse;
 import com.example.employeeservice.dtos.EmployeeResponseDTO;
 import com.example.employeeservice.dtos.UpdateEmployeeDTO;
 import com.example.employeeservice.entity.Employee;
+import com.example.employeeservice.entity.EmployeeListView;
 import org.springframework.data.domain.Page;
 
 import java.util.UUID;
 
 public interface EmployeeService {
-    Page<Employee> findAll(int page, int size);
+    // Read from Projection
+    Page<EmployeeListView> findAll(int page, int size);
 
-    EmployeeResponseDTO findEmployeeById(UUID id);
+    // Read from Projection
+    EmployeeListView findEmployeeById(UUID id);
 
+    // Command Operations
     EmployeeResponseDTO updateEmployee(UUID id, UpdateEmployeeDTO updateEmployeeDTO);
 
     void deleteEmployee(UUID id);
@@ -23,4 +27,6 @@ public interface EmployeeService {
     EmployeeResponse findByToken(String token);
 
     EmployeeResponse verifyEmployee(String userId);
+
+    void updateEmployeeStatus(UUID employeeId, Employee.Status status);
 }

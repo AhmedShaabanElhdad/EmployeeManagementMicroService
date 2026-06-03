@@ -4,6 +4,7 @@ import com.example.departmentservice.abstraction.DepartmentService;
 import com.example.departmentservice.dtos.CreateDepartmentRequest;
 import com.example.departmentservice.entity.Department;
 import com.example.departmentservice.repo.DepartmentRepo;
+import com.example.shared.monitoring.MetricsProvider;
 import core.CustomResponseException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,22 +23,30 @@ import java.util.UUID;
 public class DepartmentServiceImpl implements DepartmentService {
 
     private final DepartmentRepo departmentRepo;
+    private final MetricsProvider metricsProvider;
 
     @Override
     @Cacheable(value = "departments_list")
     public List<Department> findAll() {
+        long startTime = System.currentTimeMillis();
         log.info("Fetching all departments from DB");
-        return departmentRepo.findAll();
+        List<Department> result = departmentRepo.findAll();
+        metricsProvider.recordExecutionTime("department.find.all.time", System.currentTimeMillis() - startTime);
+        return result;
     }
 
     @Override
     @Cacheable(value = "departments", key = "#departmentId")
     public Department findDepartmentById(UUID departmentId) {
+        long startTime = System.currentTimeMillis();
         log.info("Fetching department from DB for ID: {}", departmentId);
-        return departmentRepo.findById(departmentId)
-                .orElseThrow(() -> CustomResponseException.ResourceNotFound(
-                "Department with Id " + departmentId + " not found"
-        ));
+        Department result = departmentRepo.findById(departmentId)
+                .orElseThrow(() -> {
+                    metricsProvider.incrementCounter("department.find.error", "reason", "not_found");
+                    return CustomResponseException.ResourceNotFound("Department with Id " + departmentId + " not found");
+                });
+        metricsProvider.recordExecutionTime("department.find.by.id.time", System.currentTimeMillis() - startTime);
+        return result;
     }
 
     @Override
@@ -45,12 +54,16 @@ public class DepartmentServiceImpl implements DepartmentService {
     @CachePut(value = "departments", key = "#departmentId")
     @CacheEvict(value = "departments_list", allEntries = true)
     public Department updateDepartment(UUID departmentId, String name) {
+        metricsProvider.incrementCounter("department.update.request");
         Department department = departmentRepo.findById(departmentId)
-                .orElseThrow(() -> CustomResponseException.ResourceNotFound(
-                        "Department with Id " + departmentId + " not found")
-        );
+                .orElseThrow(() -> {
+                    metricsProvider.incrementCounter("department.update.error", "reason", "not_found");
+                    return CustomResponseException.ResourceNotFound("Department with Id " + departmentId + " not found");
+                });
         department.setName(name);
-        return departmentRepo.save(department);
+        Department saved = departmentRepo.save(department);
+        metricsProvider.incrementCounter("department.update.success");
+        return saved;
     }
 
     @Override
@@ -58,17 +71,22 @@ public class DepartmentServiceImpl implements DepartmentService {
     @CacheEvict(value = {"departments", "departments_list"}, key = "#departmentId", allEntries = true)
     public void deleteDepartment(UUID departmentId) {
         if (!departmentRepo.existsById(departmentId)) {
+            metricsProvider.incrementCounter("department.delete.error", "reason", "not_found");
             throw CustomResponseException.ResourceNotFound("Department with Id " + departmentId + " not found");
         }
         departmentRepo.deleteById(departmentId);
+        metricsProvider.incrementCounter("department.delete.success");
     }
 
     @Override
     @Transactional
     @CacheEvict(value = "departments_list", allEntries = true)
     public Department createDepartment(CreateDepartmentRequest request) {
+        metricsProvider.incrementCounter("department.create.request");
         Department department = new Department();
         department.setName(request.name());
-        return departmentRepo.save(department);
+        Department saved = departmentRepo.save(department);
+        metricsProvider.incrementCounter("department.create.success");
+        return saved;
     }
 }
