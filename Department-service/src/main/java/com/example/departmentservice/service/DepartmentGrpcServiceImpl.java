@@ -12,7 +12,7 @@ import java.util.UUID;
 
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
-import jakarta.persistence.Cacheable;
+import org.springframework.cache.annotation.Cacheable;
 import lombok.RequiredArgsConstructor;
 
 @GrpcService
@@ -23,7 +23,7 @@ public class DepartmentGrpcServiceImpl extends DepartmentGrpcServiceGrpc.Departm
 
     @Cacheable(
             value = "departments",
-            key = "#departmentId"
+            key = "#request.departmentId"
     )
     @Override
     public void getDepartment(DepartmentRequest request, StreamObserver<DepartmentResponse> responseObserver) {
@@ -43,10 +43,14 @@ public class DepartmentGrpcServiceImpl extends DepartmentGrpcServiceGrpc.Departm
 
             responseObserver.onNext(response);
             responseObserver.onCompleted();
+        } catch (IllegalArgumentException e) {
+            responseObserver.onError(Status.INVALID_ARGUMENT
+                    .withDescription("Invalid UUID format")
+                    .asRuntimeException()
+            );
         } catch (Exception e) {
-            // todo
-            responseObserver.onError(Status.NOT_FOUND
-                    .withDescription("Department not found")
+            responseObserver.onError(Status.INTERNAL
+                    .withDescription("An internal error occurred")
                     .asRuntimeException()
             );
         }

@@ -22,6 +22,9 @@ public class Outbox {
     private UUID id;
 
     @Column(nullable = false)
+    private UUID eventId;
+
+    @Column(nullable = false)
     private String aggregateId;
 
     @Column(nullable = false)
@@ -39,5 +42,6 @@ public class Outbox {
     private Instant processedAt;
 
     @Column(nullable = false)
+    @Builder.Default
     private boolean processed = false;
 }

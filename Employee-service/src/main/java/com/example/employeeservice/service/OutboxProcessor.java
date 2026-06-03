@@ -4,6 +4,7 @@ import com.example.employeeservice.dtos.EmployeeCreatedEvent;
 import com.example.employeeservice.entity.Outbox;
 import com.example.employeeservice.message.publisher.EmployeeEventPublisher;
 import com.example.employeeservice.repo.OutboxRepo;
+import com.example.shared.events.EmployeeSagaEvent;
 import com.example.shared.monitoring.MetricsProvider;
 import com.fasterxml.jackson.databind.ObjectMapper;
 

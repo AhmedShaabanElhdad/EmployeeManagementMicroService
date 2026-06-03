@@ -1,7 +1,7 @@
 plugins {
     id 'java'
-    id 'org.springframework.boot'
-    id 'io.spring.dependency-management'
+    id 'org.springframework.boot' version '3.3.5'
+    id 'io.spring.dependency-management' version '1.1.7'
 }
 
 group = 'com.example'
@@ -22,6 +22,13 @@ ext {
     set('springCloudVersion', "2023.0.3")
 }
 
+dependencyManagement {
+    imports {
+        mavenBom "org.springframework.boot:spring-boot-dependencies:3.3.5"
+        mavenBom "org.springframework.cloud:spring-cloud-dependencies:${springCloudVersion}"
+    }
+}
+
 dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-amqp'
     implementation 'org.flywaydb:flyway-core'
@@ -29,29 +36,32 @@ dependencies {
 
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    
+    // Redis & Caching - Explicitly adding dependencies to resolve classpath issues
     implementation 'org.springframework.boot:spring-boot-starter-cache'
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+    implementation 'org.springframework.data:spring-data-redis'
+    implementation 'io.lettuce:lettuce-core'
 
     // gRPC Server
     implementation 'net.devh:grpc-server-spring-boot-starter:3.1.0.RELEASE'
 
     implementation 'org.flywaydb:flyway-database-postgresql'
     implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-client'
+    
     compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+    
     developmentOnly 'org.springframework.boot:spring-boot-devtools'
+    developmentOnly 'org.springframework.boot:spring-boot-docker-compose'
     runtimeOnly 'org.postgresql:postgresql'
     annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
-    annotationProcessor 'org.projectlombok:lombok'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testCompileOnly 'org.projectlombok:lombok'
+    testAnnotationProcessor 'org.projectlombok:lombok'
 
     implementation project(':shared')
-}
-
-dependencyManagement {
-    imports {
-        mavenBom "org.springframework.cloud:spring-cloud-dependencies:${springCloudVersion}"
-    }
 }
 
 tasks.named('test') {
