@@ -3,28 +3,28 @@ package com.example.authservice.service;
 import com.example.authservice.abstraction.AuthService;
 import com.example.authservice.client.EmployeeClient;
 import com.example.authservice.config.KafkaProducerConfig;
-import com.example.authservice.dtos.AuthResponseDTO;
-import com.example.authservice.dtos.EmployeeResponse;
-import com.example.authservice.dtos.LoginRequestDTO;
-import com.example.authservice.dtos.RefreshTokenRequestDTO;
-import com.example.authservice.dtos.SignUpRequestDTO;
-import com.example.authservice.dtos.UserIdRequestDTO;
-import com.example.authservice.dtos.UserResponseDTO;
+import com.example.authservice.dtos.*;
+import com.example.authservice.entity.AuthOutbox;
 import com.example.authservice.entity.UserAccount;
 import com.example.authservice.helper.JwtHelper;
 import com.example.authservice.mapper.Mapper;
+import com.example.authservice.repo.AuthOutboxRepo;
 import com.example.authservice.repo.UserAccountRepo;
 import com.example.shared.monitoring.MetricsProvider;
-
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import core.CustomResponseException;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -39,11 +39,12 @@ public class AuthServiceImpl implements AuthService {
 
     private final EmployeeClient employeeClient;
     private final UserAccountRepo userAccountRepo;
+    private final AuthOutboxRepo outboxRepo;
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtHelper jwtHelper;
-    private final KafkaTemplate<String, Object> kafkaTemplate;
     private final MetricsProvider metricsProvider;
+    private final ObjectMapper objectMapper;
 
     @Override
     @Transactional
@@ -71,11 +72,20 @@ public class AuthServiceImpl implements AuthService {
 
         log.info("User created successfully: {}", signUpRequestDTO.username());
 
-        // todo add outbox pattern
-        kafkaTemplate.send(
-                KafkaProducerConfig.VERIFY_TOPIC,
-                new UserIdRequestDTO(userAccount.getEmployeeId().toString())
-        );
+        // FIX: Transactional Outbox Pattern to solve Dual Write bug
+        UserIdRequestDTO verificationEvent = new UserIdRequestDTO(userAccount.getEmployeeId().toString());
+        try {
+            outboxRepo.save(AuthOutbox.builder()
+                    .aggregateId(userAccount.getId().toString())
+                    .eventType("EmployeeVerificationInitiated")
+                    .payload(objectMapper.writeValueAsString(verificationEvent))
+                    .createdAt(Instant.now())
+                    .processed(false)
+                    .build());
+        } catch (JsonProcessingException e) {
+            log.error("Failed to serialize verification event", e);
+            throw new RuntimeException("Internal Server Error during signup");
+        }
 
         metricsProvider.incrementCounter("auth.signup.success");
         return Mapper.toUserResponseDTO(userAccount);
@@ -83,7 +93,7 @@ public class AuthServiceImpl implements AuthService {
 
     // todo remove cache after logout and change role api
     @Override
-    @Cacheable(value = "auth_responses", key = "#loginRequestDTO.username()")
+    @Cacheable(value = "auth_responses", key = "#loginRequestDTO.username()", unless = "#result == null")
     public AuthResponseDTO login(LoginRequestDTO loginRequestDTO) {
         long startTime = System.currentTimeMillis();
         metricsProvider.incrementCounter("auth.login.request");
