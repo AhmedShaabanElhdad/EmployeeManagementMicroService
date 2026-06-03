@@ -1,20 +1,23 @@
 package com.example.apigateway.config;
 
 import com.example.shared.monitoring.MetricsProvider;
-import io.jsonwebtoken.Claims;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.WebFilter;
 import org.springframework.web.server.WebFilterChain;
-import reactor.core.publisher.Mono;
 
 import java.util.Set;
 import java.util.UUID;
+
+import io.jsonwebtoken.Claims;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import reactor.core.publisher.Mono;
 
 @Component
 @RequiredArgsConstructor
@@ -33,13 +36,14 @@ public class JwtAuthenticationFilter implements WebFilter {
         metricsProvider.incrementCounter("gateway.request.received", "path", path, "method", method);
 
         log.info("Incoming request {} {}", method, exchange.getRequest().getURI());
+
         Set<String> publicEndpoints = Set.of(
                 "/api/v1/auth/login",
                 "/api/v1/auth/signup",
                 "/api/v1/auth/refresh"
         );
 
-        if (publicEndpoints.contains(path))
+        if (publicEndpoints.contains(path)) {
             return chain.filter(exchange);
         }
 
@@ -59,20 +63,26 @@ public class JwtAuthenticationFilter implements WebFilter {
             return exchange.getResponse().setComplete();
         }
 
-        String correlationId = UUID.randomUUID().toString();
+        // Correlation ID Strategy: Check for existing ID first for end-to-end tracing
+        String correlationId = exchange.getRequest().getHeaders().getFirst("X-Correlation-Id");
+        if (correlationId == null || correlationId.isEmpty()) {
+            correlationId = UUID.randomUUID().toString();
+        }
+
         ServerHttpRequest mutatedRequest = exchange.getRequest().mutate()
                 .header("X-User-Id", claims.get("userId", String.class))
                 .header("X-Correlation-Id", correlationId)
-                // todo check role tradeoff
                 .header("X-Role", claims.get("role", String.class))
                 .build();
 
         return chain.filter(exchange.mutate().request(mutatedRequest).build())
                 .then(Mono.fromRunnable(() -> {
-                    HttpStatus status = (HttpStatus) exchange.getResponse().getStatusCode();
-                    metricsProvider.recordExecutionTime("gateway.request.processing.time", 
-                            System.currentTimeMillis() - startTime, "path", path, "status", status.name());
-                    log.info("Response status: {}", status);
+                    HttpStatusCode status = exchange.getResponse().getStatusCode();
+                    if (status != null) {
+                        metricsProvider.recordExecutionTime("gateway.request.processing.time",
+                                System.currentTimeMillis() - startTime, "path", path, "status", status.toString());
+                        log.info("Response status: {}", status);
+                    }
                 }));
     }
 }
