@@ -9,7 +9,7 @@ import java.util.UUID;
 
 @Repository
 public interface UserAccountRepo extends JpaRepository<UserAccount, UUID> {
-    Optional<UserAccount> findByUserName(String userName);
+    Optional<UserAccount> findByUsername(String username);
     
     long countByRole(UserAccount.ROLE role);
     long countByEnabled(boolean enabled);
