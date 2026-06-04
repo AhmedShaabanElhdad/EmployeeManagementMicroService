@@ -68,6 +68,10 @@ services:
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: 'CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT'
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      # Critical for single-node Kafka clusters:
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
     ports:
       - "9092:9092"
       - "29092:29092"
@@ -80,7 +84,7 @@ services:
     ports:
       - "8761:8761"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8761/actuator/health"]
+      test: [ "CMD", "curl", "-f", "http://localhost:8761/actuator/health" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -91,19 +95,13 @@ services:
       dockerfile: Auth-service/Dockerfile
     environment:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-auth:5432/user
-      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-server:8761/eureka/
       - SPRING_RABBITMQ_HOST=rabbitmq
       - SPRING_DATA_REDIS_HOST=redis
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
     depends_on:
-      postgres-auth:
-        condition: service_started
       eureka-server:
         condition: service_healthy
-      redis:
-        condition: service_started
-      kafka:
-        condition: service_started
 
   employee-service:
     build:
@@ -111,20 +109,14 @@ services:
       dockerfile: Employee-service/Dockerfile
     environment:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-employee:5432/employees
-      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-server:8761/eureka/
       - SPRING_RABBITMQ_HOST=rabbitmq
       - SPRING_DATA_REDIS_HOST=redis
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
       - MANAGEMENT_ZIPKIN_TRACING_ENDPOINT=http://zipkin:9411/api/v2/spans
     depends_on:
-      postgres-employee:
-        condition: service_started
       eureka-server:
         condition: service_healthy
-      redis:
-        condition: service_started
-      kafka:
-        condition: service_started
 
   department-service:
     build:
@@ -132,16 +124,12 @@ services:
       dockerfile: Department-service/Dockerfile
     environment:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-department:5432/department
-      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-server:8761/eureka/
       - SPRING_RABBITMQ_HOST=rabbitmq
       - SPRING_DATA_REDIS_HOST=redis
     depends_on:
-      postgres-department:
-        condition: service_started
       eureka-server:
         condition: service_healthy
-      redis:
-        condition: service_started
 
   payroll-service:
     build:
@@ -149,23 +137,20 @@ services:
       dockerfile: Payroll-service/Dockerfile
     environment:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-payroll:5432/payroll
-      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-server:8761/eureka/
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
     depends_on:
-      postgres-payroll:
-        condition: service_started
       eureka-server:
         condition: service_healthy
-      kafka:
-        condition: service_started
 
   notification-service:
     build:
       context: .
       dockerfile: Notification/Dockerfile
     environment:
-      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-server:8761/eureka/
       - SPRING_RABBITMQ_HOST=rabbitmq
+      - BACKEND_ORIGIN=http://api-gateway:8080
     depends_on:
       eureka-server:
         condition: service_healthy
@@ -177,11 +162,9 @@ services:
     ports:
       - "8080:8080"
     environment:
-      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+      - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-server:8761/eureka/
       - SPRING_DATA_REDIS_HOST=redis
       - MANAGEMENT_ZIPKIN_TRACING_ENDPOINT=http://zipkin:9411/api/v2/spans
     depends_on:
       eureka-server:
         condition: service_healthy
-      redis:
-        condition: service_started

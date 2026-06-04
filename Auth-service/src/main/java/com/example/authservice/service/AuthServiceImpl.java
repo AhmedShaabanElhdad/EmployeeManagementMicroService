@@ -2,8 +2,13 @@ package com.example.authservice.service;
 
 import com.example.authservice.abstraction.AuthService;
 import com.example.authservice.client.EmployeeClient;
-import com.example.authservice.config.KafkaProducerConfig;
-import com.example.authservice.dtos.*;
+import com.example.authservice.dtos.AuthResponseDTO;
+import com.example.authservice.dtos.EmployeeResponse;
+import com.example.authservice.dtos.LoginRequestDTO;
+import com.example.authservice.dtos.RefreshTokenRequestDTO;
+import com.example.authservice.dtos.SignUpRequestDTO;
+import com.example.authservice.dtos.UserIdRequestDTO;
+import com.example.authservice.dtos.UserResponseDTO;
 import com.example.authservice.entity.AuthOutbox;
 import com.example.authservice.entity.UserAccount;
 import com.example.authservice.helper.JwtHelper;
@@ -13,9 +18,7 @@ import com.example.authservice.repo.UserAccountRepo;
 import com.example.shared.monitoring.MetricsProvider;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import core.CustomResponseException;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -58,7 +61,7 @@ public class AuthServiceImpl implements AuthService {
             throw CustomResponseException.BadRequest("Account Already Verified");
         }
 
-        if (userAccountRepo.findByUserName(signUpRequestDTO.username()).isPresent()) {
+        if (userAccountRepo.findByUsername(signUpRequestDTO.username()).isPresent()) {
             metricsProvider.incrementCounter("auth.signup.error", "reason", "user_exists");
             throw CustomResponseException.BadRequest("Username already exists");
         }
@@ -109,7 +112,7 @@ public class AuthServiceImpl implements AuthService {
             throw e;
         }
 
-        UserAccount userAccount = userAccountRepo.findByUserName(loginRequestDTO.username())
+        UserAccount userAccount = userAccountRepo.findByUsername(loginRequestDTO.username())
                 .orElseThrow(() -> {
                     metricsProvider.incrementCounter("auth.login.error", "reason", "user_not_found");
                     return CustomResponseException.BadCredential();
@@ -127,7 +130,7 @@ public class AuthServiceImpl implements AuthService {
         String refreshToken = refreshTokenRequestDTO.refreshToken();
         String username = jwtHelper.extractUsername(refreshToken);
 
-        UserAccount userAccount = userAccountRepo.findByUserName(username)
+        UserAccount userAccount = userAccountRepo.findByUsername(username)
                 .orElseThrow(CustomResponseException::BadCredential);
 
         if (!jwtHelper.isRefreshTokenValid(refreshToken, userAccount)) {
