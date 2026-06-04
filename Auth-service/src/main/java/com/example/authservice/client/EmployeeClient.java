@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 
+// todo add circuit breaker
 @FeignClient(name = "employee-service")
 public interface EmployeeClient {
     @GetMapping("/internal/employees/by-token")

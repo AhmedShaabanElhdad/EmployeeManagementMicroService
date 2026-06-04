@@ -24,9 +24,12 @@ public class AuthOutboxProcessor {
     private final KafkaTemplate<String, Object> kafkaTemplate;
     private final ObjectMapper objectMapper;
 
+    // todo expensive polling need to think of Debezium + Kafka or Spring Batch
     @Scheduled(fixedDelay = 5000)
     @Transactional
     public void processOutboxEvents() {
+        // todo solve 2 auth-service replicas -> this Outbox Processor Can Double Process
+        // todo we can Add status: PENDING - PROCESSING - PROCESSED - FAILED  or lock update
         List<AuthOutbox> unprocessedEvents = outboxRepo.findByProcessedFalse();
 
         for (AuthOutbox event : unprocessedEvents) {
@@ -35,11 +38,11 @@ public class AuthOutboxProcessor {
                     UserIdRequestDTO payload = objectMapper.readValue(event.getPayload(), UserIdRequestDTO.class);
                     kafkaTemplate.send(KafkaProducerConfig.VERIFY_TOPIC, payload);
                 }
-                
+
                 event.setProcessed(true);
                 event.setProcessedAt(Instant.now());
                 outboxRepo.save(event);
-                
+
                 log.info("Successfully processed auth outbox event: {}", event.getId());
             } catch (Exception e) {
                 log.error("Failed to process auth outbox event: {}", event.getId(), e);

@@ -2,13 +2,7 @@ package com.example.authservice.service;
 
 import com.example.authservice.abstraction.AuthService;
 import com.example.authservice.client.EmployeeClient;
-import com.example.authservice.dtos.AuthResponseDTO;
-import com.example.authservice.dtos.EmployeeResponse;
-import com.example.authservice.dtos.LoginRequestDTO;
-import com.example.authservice.dtos.RefreshTokenRequestDTO;
-import com.example.authservice.dtos.SignUpRequestDTO;
-import com.example.authservice.dtos.UserIdRequestDTO;
-import com.example.authservice.dtos.UserResponseDTO;
+import com.example.authservice.dtos.*;
 import com.example.authservice.entity.AuthOutbox;
 import com.example.authservice.entity.UserAccount;
 import com.example.authservice.helper.JwtHelper;
@@ -18,7 +12,9 @@ import com.example.authservice.repo.UserAccountRepo;
 import com.example.shared.monitoring.MetricsProvider;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-
+import core.CustomResponseException;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -30,10 +26,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
-
-import core.CustomResponseException;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
@@ -71,6 +63,7 @@ public class AuthServiceImpl implements AuthService {
         userAccount.setPassword(passwordEncoder.encode(signUpRequestDTO.password()));
         userAccount.setEmployeeId(employee.employeeId());
 
+        //todo handle DataIntegrityViolationException for Signup Race Condition
         userAccountRepo.save(userAccount);
 
         log.info("User created successfully: {}", signUpRequestDTO.username());
@@ -95,6 +88,9 @@ public class AuthServiceImpl implements AuthService {
     }
 
     // todo remove cache after logout and change role api
+    // todo Account Locking Strategy
+    // todo add logout and store token in table
+    // todo add Audit Trail
     @Override
     @Cacheable(value = "auth_responses", key = "#loginRequestDTO.username()", unless = "#result == null")
     public AuthResponseDTO login(LoginRequestDTO loginRequestDTO) {

@@ -5,6 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.UuidGenerator;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -27,7 +28,7 @@ import java.util.UUID;
 @NoArgsConstructor
 public class UserAccount implements UserDetails {
     @Id
-    @GeneratedValue(generator = "UUID")
+    @UuidGenerator
     private UUID id;
 
     @Column(name = "username", unique = true, nullable = false, length = 100)

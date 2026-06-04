@@ -8,6 +8,7 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class FeignConfig {
 
+    // todo think of using mTLS / OAuth Client Credentials / Service Mesh after make comparison 
     @Value("${internal.api.secret}")
     private String secret;
 
