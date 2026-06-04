@@ -23,20 +23,24 @@ ext {
 
 dependencyManagement {
     imports {
+
         mavenBom "org.springframework.boot:spring-boot-dependencies:3.3.5"
         mavenBom "org.springframework.cloud:spring-cloud-dependencies:${springCloudVersion}"
     }
 }
 
 dependencies {
-
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-amqp'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
+
+    // Redis & Caching - Explicitly adding to resolve NoClassDefFoundError
     implementation 'org.springframework.boot:spring-boot-starter-cache'
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+//    implementation 'org.springframework.data:spring-data-redis'
+    implementation 'io.lettuce:lettuce-core'
 
     // Kafka
     implementation 'org.springframework.kafka:spring-kafka'
@@ -66,7 +70,6 @@ dependencies {
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.security:spring-security-test'
     testImplementation 'org.springframework.amqp:spring-rabbit-test'
-
     testImplementation 'org.springframework.kafka:spring-kafka-test'
 
     implementation project(':shared')
