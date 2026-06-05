@@ -1,6 +1,7 @@
 package com.example.apigateway.config;
 
-import lombok.RequiredArgsConstructor;
+import static org.springframework.security.config.web.server.SecurityWebFiltersOrder.AUTHENTICATION;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.Customizer;
@@ -8,29 +9,19 @@ import org.springframework.security.config.annotation.web.reactive.EnableWebFlux
 import org.springframework.security.config.web.server.ServerHttpSecurity;
 import org.springframework.security.web.server.SecurityWebFilterChain;
 
-import static org.springframework.security.config.web.server.SecurityWebFiltersOrder.AUTHENTICATION;
+import lombok.RequiredArgsConstructor;
 
 @Configuration
 @EnableWebFluxSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
-
-    //    private final UserDetailsService userDetailsService;
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
-
-//    @Bean
-//    PasswordEncoder passwordEncoder() {
-//        return new BCryptPasswordEncoder();
-//    }
 
     @Bean
     SecurityWebFilterChain securityFilterChain(ServerHttpSecurity http) throws Exception {
         http
                 .cors(Customizer.withDefaults())
                 .csrf(ServerHttpSecurity.CsrfSpec::disable)
-//                .sessionManagement(session ->
-//                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-//                )
                 .authorizeExchange((authorize) -> authorize
                         .pathMatchers(
                                 "/api/v1/auth/login",
@@ -52,11 +43,4 @@ public class SecurityConfig {
 
         return http.build();
     }
-
-//    @Bean
-//    AuthenticationManager authenticationManager(HttpSecurity http) throws Exception {
-//        var authBuilder = http.getSharedObject(AuthenticationManagerBuilder.class);
-//        authBuilder.userDetailsService(userDetailsService).passwordEncoder(passwordEncoder());
-//        return authBuilder.build();
-//    }
 }

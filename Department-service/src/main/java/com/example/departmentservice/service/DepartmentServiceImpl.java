@@ -5,9 +5,7 @@ import com.example.departmentservice.dtos.CreateDepartmentRequest;
 import com.example.departmentservice.entity.Department;
 import com.example.departmentservice.repo.DepartmentRepo;
 import com.example.shared.monitoring.MetricsProvider;
-import core.CustomResponseException;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
@@ -16,6 +14,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.UUID;
+
+import core.CustomResponseException;
+import io.micrometer.core.annotation.Timed;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
@@ -36,6 +39,11 @@ public class DepartmentServiceImpl implements DepartmentService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    @Timed(
+            value = "department.find.by.id",
+            description = "Department lookup"
+    )
     @Cacheable(value = "departments", key = "#departmentId")
     public Department findDepartmentById(UUID departmentId) {
         long startTime = System.currentTimeMillis();

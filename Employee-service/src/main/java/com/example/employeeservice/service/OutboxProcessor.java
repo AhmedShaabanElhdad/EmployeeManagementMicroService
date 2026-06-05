@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 import lombok.RequiredArgsConstructor;
@@ -45,6 +46,8 @@ public class OutboxProcessor {
                     eventPublisher.publishEmployeeCreated(payload);
                 } else if ("EmployeeSagaStart".equals(event.getEventType())) {
                     EmployeeSagaEvent sagaPayload = objectMapper.readValue(event.getPayload(), EmployeeSagaEvent.class);
+
+                    // todo add .whenComplete
                     kafkaTemplate.send("employee-saga-topic", sagaPayload);
                 }
 
@@ -59,5 +62,17 @@ public class OutboxProcessor {
                 metricsProvider.incrementCounter("outbox.event.error", "type", event.getEventType());
             }
         }
+    }
+
+    @Scheduled(cron = "0 0 2 * * *")
+    @jakarta.transaction.Transactional
+    public void cleanupOutbox() {
+
+        Instant cutoff =
+                Instant.now().minus(30, ChronoUnit.DAYS);
+
+        outboxRepo.deleteOldProcessedEvents(
+                cutoff
+        );
     }
 }

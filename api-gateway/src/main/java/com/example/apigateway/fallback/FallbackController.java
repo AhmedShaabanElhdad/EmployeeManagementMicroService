@@ -1,11 +1,12 @@
 package com.example.apigateway.fallback;
 
-import core.GlobalResponse;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
-import reactor.core.publisher.Mono;
 
 import java.util.List;
+
+import core.GlobalResponse;
+import reactor.core.publisher.Mono;
 
 @RestController
 public class FallbackController {
@@ -28,6 +29,13 @@ public class FallbackController {
     public Mono<GlobalResponse<Void>> departmentFallback() {
         return Mono.just(new GlobalResponse<>(List.of(
                 new GlobalResponse.ErrorItem("Department Service is currently unavailable.")
+        )));
+    }
+
+    @GetMapping("/fallback/payroll")
+    public Mono<GlobalResponse<Void>> payrollFallback() {
+        return Mono.just(new GlobalResponse<>(List.of(
+                new GlobalResponse.ErrorItem("Payroll Service is currently unavailable.")
         )));
     }
 }

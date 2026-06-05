@@ -2,11 +2,7 @@ package com.example.employeeservice.config;
 
 import com.example.employeeservice.entity.IdempotencyKey;
 import com.example.employeeservice.repo.IdempodentKeyRepo;
-import jakarta.servlet.FilterChain;
-import jakarta.servlet.ServletException;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-import lombok.RequiredArgsConstructor;
+
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
@@ -15,6 +11,14 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
+
+
+// todo check Race condition. for DataIntegrityViolationException
 @Component
 @RequiredArgsConstructor
 public class IdempotencyFilter extends OncePerRequestFilter {
