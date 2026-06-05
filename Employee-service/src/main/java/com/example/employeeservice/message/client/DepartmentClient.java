@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import java.util.UUID;
 
 @FeignClient(name = "department-service")
+@Deprecated
 public interface DepartmentClient {
 
     @GetMapping("/api/v1/departments/{departmentId}")

@@ -26,10 +26,12 @@ public class AuthOutboxProcessor {
     private final KafkaTemplate<String, Object> kafkaTemplate;
     private final ObjectMapper objectMapper;
 
-    // todo add Distributed lock.
+    // todo expensive polling need to think of Debezium + Kafka or Spring Batch - Add Distributed lock.
     @Scheduled(fixedDelay = 5000)
     @Transactional
     public void processOutboxEvents() {
+        // todo solve 2 auth-service replicas -> this Outbox Processor Can Double Process
+        // todo we can Add status: PENDING - PROCESSING - PROCESSED - FAILED  or lock update
         List<AuthOutbox> unprocessedEvents = outboxRepo.findByProcessedFalse();
 
         for (AuthOutbox event : unprocessedEvents) {
