@@ -1,4 +1,4 @@
-package com.example.employeeservice.config;
+package com.example.payrollservice.config;
 
 import org.slf4j.MDC;
 import org.springframework.context.annotation.Bean;
@@ -26,6 +26,7 @@ public class CorrelationFilter extends OncePerRequestFilter {
         if (correlationId == null || correlationId.isBlank()) {
             correlationId = UUID.randomUUID().toString();
         }
+
 
         MDC.put("correlationId", correlationId);
 

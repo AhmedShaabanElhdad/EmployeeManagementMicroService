@@ -29,7 +29,7 @@ public class IdempotencyKey {
     @Column(name = "request_path")
     private String requestPath;
 
-    @Column(name = "http_method")
+    @Column(name = "http_method", length = 10)
     private String httpMethod;
 
     @Column(name = "response_hash")
