@@ -61,7 +61,7 @@ public class Employee {
     private UUID departmentId;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(nullable = false, length = 50)
     private Status status = Status.PENDING;
 
     @CreatedDate

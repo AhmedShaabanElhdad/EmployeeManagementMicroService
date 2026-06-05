@@ -1,10 +1,5 @@
-package com.example.employeeservice.config;
+package com.example.departmentservice.config;
 
-import feign.RequestInterceptor;
-import jakarta.servlet.FilterChain;
-import jakarta.servlet.ServletException;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.MDC;
 import org.springframework.context.annotation.Bean;
 import org.springframework.stereotype.Component;
@@ -44,18 +39,8 @@ public class CorrelationFilter extends OncePerRequestFilter {
     }
 
     @Bean
-    public RequestInterceptor correlationInterceptor() {
-        return template -> {
-            String correlationId =
-                    MDC.get("correlationId");
-
-            if (correlationId != null) {
-                template.header(
-                        "X-Correlation-Id",
-                        correlationId
-                );
-            }
-        };
+    ClientInterceptor correlationInterceptor() {
+        return new CorrelationClientInterceptor();
     }
 }
 

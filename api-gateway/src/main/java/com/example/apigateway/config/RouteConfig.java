@@ -1,6 +1,5 @@
 package com.example.apigateway.config;
 
-import lombok.RequiredArgsConstructor;
 import org.springframework.cloud.gateway.filter.ratelimit.KeyResolver;
 import org.springframework.cloud.gateway.filter.ratelimit.RedisRateLimiter;
 import org.springframework.cloud.gateway.route.RouteLocator;
@@ -8,6 +7,8 @@ import org.springframework.cloud.gateway.route.builder.RouteLocatorBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+
+import lombok.RequiredArgsConstructor;
 
 @Configuration
 @RequiredArgsConstructor
@@ -62,6 +63,17 @@ public class RouteConfig {
                                 )
                         )
                         .uri("lb://department-service")
+                )
+
+                .route("payroll-service", route -> route
+                        .path("/api/v1/payroll/**")
+                        .filters(f -> f
+                                .circuitBreaker(config -> config
+                                        .setName("payrollServiceCircuitBreaker")
+                                        .setFallbackUri("forward:/fallback/payroll")
+                                )
+                        )
+                        .uri("lb://payroll-service")
                 )
 
                 .build();

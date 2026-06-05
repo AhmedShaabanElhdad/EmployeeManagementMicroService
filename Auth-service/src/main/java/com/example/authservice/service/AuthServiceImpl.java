@@ -26,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -153,6 +154,7 @@ public class AuthServiceImpl implements AuthService {
         if ("access".equals(type)) {
             claims.put("role", user.getRole());
             claims.put("employeeId", user.getEmployeeId());
+            claims.put("jti", UUID.randomUUID());
         }
 
         return claims;

@@ -5,8 +5,7 @@ import com.example.authservice.dtos.UserIdRequestDTO;
 import com.example.authservice.entity.AuthOutbox;
 import com.example.authservice.repo.AuthOutboxRepo;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -14,6 +13,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
@@ -24,7 +26,7 @@ public class AuthOutboxProcessor {
     private final KafkaTemplate<String, Object> kafkaTemplate;
     private final ObjectMapper objectMapper;
 
-    // todo expensive polling need to think of Debezium + Kafka or Spring Batch
+    // todo expensive polling need to think of Debezium + Kafka or Spring Batch - Add Distributed lock.
     @Scheduled(fixedDelay = 5000)
     @Transactional
     public void processOutboxEvents() {
