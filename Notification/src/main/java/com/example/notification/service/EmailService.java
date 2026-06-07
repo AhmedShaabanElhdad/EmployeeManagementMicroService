@@ -12,6 +12,8 @@ import org.springframework.stereotype.Service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+import java.math.BigDecimal;
+
 @Service
 @Slf4j
 @RequiredArgsConstructor
@@ -31,11 +33,10 @@ public class EmailService {
             maxAttempts = 3,
             backoff = @Backoff(delay = 3000)
     )
-    public void sendMessage(String to, String token) {
+    public void sendRegistrationMessage(String to, String token) {
         long startTime = System.currentTimeMillis();
-        metricsProvider.incrementCounter("notification.email.attempt", "to", to);
+        metricsProvider.incrementCounter("notification.email.attempt", "to", to, "type", "registration");
 
-        // Constructing the signup URL pointing to the API Gateway
         String url = origin + "/api/v1/auth/signup?token=" + token;
 
         SimpleMailMessage message = new SimpleMailMessage();
@@ -52,7 +53,34 @@ public class EmailService {
         } catch (Exception e) {
             metricsProvider.incrementCounter("notification.email.error", "reason", e.getClass().getSimpleName());
             log.error("Failed to send email to {}. Retrying...", to);
-            throw e; // Throwing to trigger @Retryable
+            throw e;
+        }
+    }
+
+    @Retryable(
+            retryFor = Exception.class,
+            maxAttempts = 3,
+            backoff = @Backoff(delay = 3000)
+    )
+    public void sendPayrollInvoiceMessage(String to, String month, BigDecimal netAmount) {
+        long startTime = System.currentTimeMillis();
+        metricsProvider.incrementCounter("notification.email.attempt", "to", to, "type", "payroll");
+
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom(emailUsername);
+        message.setSubject("Payslip for " + month);
+        message.setTo(to);
+        message.setText("Hello, \n\nYour payslip for " + month + " has been generated.\n\nNet Amount: " + netAmount + "\n\nYou can view more details in the Employee Portal.\n\nRegards,\nHR Team");
+
+        try {
+            mailSender.send(message);
+            metricsProvider.recordExecutionTime("notification.email.send.time", System.currentTimeMillis() - startTime);
+            metricsProvider.incrementCounter("notification.email.success", "to", to);
+            log.info("Successfully sent payroll email to {}", to);
+        } catch (Exception e) {
+            metricsProvider.incrementCounter("notification.email.error", "reason", e.getClass().getSimpleName());
+            log.error("Failed to send payroll email to {}. Retrying...", to);
+            throw e;
         }
     }
 }

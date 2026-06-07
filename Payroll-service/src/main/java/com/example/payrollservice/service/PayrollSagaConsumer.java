@@ -28,10 +28,11 @@ public class PayrollSagaConsumer {
         
         try {
             // Business Logic: Create payroll for new employee
-            // Default salary for new employees
+            // Default gross salary and tax rate for new employees
             Payroll payroll = Payroll.builder()
                     .employeeId(event.employeeId())
-                    .salary(new BigDecimal("5000.00"))
+                    .grossSalary(new BigDecimal("5000.00"))
+                    .taxRate(new BigDecimal("0.20")) // Default 20% tax
                     .status("ACTIVE")
                     .build();
             
