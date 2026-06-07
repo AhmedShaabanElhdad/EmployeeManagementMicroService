@@ -81,7 +81,7 @@ public class AuthServiceImpl implements AuthService {
                     .build());
         } catch (JsonProcessingException e) {
             log.error("Failed to serialize verification event", e);
-            throw new RuntimeException("Internal Server Error during signup");
+            throw CustomResponseException.InternalServerError("Internal Server Error during signup");
         }
 
         metricsProvider.incrementCounter("auth.signup.success");
