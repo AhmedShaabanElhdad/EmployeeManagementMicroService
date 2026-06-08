@@ -10,8 +10,10 @@ import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.function.Function;
 
 @Component
@@ -19,6 +21,8 @@ public class JwtHelper {
 
     private static final long ACCESS_TOKEN_EXPIRATION = 1000 * 60 * 15;
     private static final long REFRESH_TOKEN_EXPIRATION = 1000L * 60 * 60 * 24 * 7;
+    private static final long SERVICE_TOKEN_EXPIRATION = 1000L * 60 * 60 * 24; // 24 hours
+
     @Value("${jwt.secret}")
     private String jwtSecret;
 
@@ -32,7 +36,7 @@ public class JwtHelper {
     ) {
         return buildToken(
                 claims,
-                userDetails,
+                userDetails.getUsername(),
                 ACCESS_TOKEN_EXPIRATION
         );
     }
@@ -43,20 +47,33 @@ public class JwtHelper {
     ) {
         return buildToken(
                 claims,
-                userDetails,
+                userDetails.getUsername(),
                 REFRESH_TOKEN_EXPIRATION
+        );
+    }
+
+    public String generateInternalServiceToken(String serviceName) {
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("role", "SERVICE");
+        claims.put("type", "access");
+        claims.put("jti", UUID.randomUUID().toString());
+        
+        return buildToken(
+                claims,
+                serviceName,
+                SERVICE_TOKEN_EXPIRATION
         );
     }
 
     private String buildToken(
             Map<String, Object> claims,
-            UserDetails userDetails,
+            String subject,
             long expiration
     ) {
 
         return Jwts.builder()
                 .claims(claims)
-                .subject(userDetails.getUsername())
+                .subject(subject)
                 .issuedAt(new Date(System.currentTimeMillis()))
                 .expiration(
                         new Date(

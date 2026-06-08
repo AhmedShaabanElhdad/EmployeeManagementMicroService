@@ -1,24 +1,22 @@
 package com.example.authservice.config;
 
+import com.example.authservice.helper.JwtHelper;
 import feign.RequestInterceptor;
-import org.springframework.beans.factory.annotation.Value;
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
+@RequiredArgsConstructor
 public class FeignConfig {
 
-    // todo think of using mTLS / OAuth Client Credentials / Service Mesh after make comparison 
-    @Value("${internal.api.secret}")
-    private String secret;
+    private final JwtHelper jwtHelper;
 
     @Bean
     public RequestInterceptor requestInterceptor() {
-
-        return template ->
-                template.header(
-                        "X-Internal-Secret",
-                        secret
-                );
+        return template -> {
+            String token = jwtHelper.generateInternalServiceToken("auth-service");
+            template.header("Authorization", "Bearer " + token);
+        };
     }
 }
