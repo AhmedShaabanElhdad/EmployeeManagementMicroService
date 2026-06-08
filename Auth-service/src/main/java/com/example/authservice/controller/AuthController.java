@@ -11,6 +11,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -26,7 +27,6 @@ public class AuthController {
 
     private final AuthService authService;
 
-    // todo check other solution than send token in request param
     @PostMapping("/signup")
     public ResponseEntity<GlobalResponse<UserResponseDTO>> signUp(
             @RequestBody @Valid SignUpRequestDTO signUpRequestDTO,
@@ -49,7 +49,6 @@ public class AuthController {
 
     }
 
-
     @PostMapping("/refresh")
     public ResponseEntity<GlobalResponse<AuthResponseDTO>> refresh(
             @RequestBody @Valid RefreshTokenRequestDTO refreshTokenRequestDTO
@@ -58,6 +57,16 @@ public class AuthController {
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(new GlobalResponse<>(responseDTO));
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<GlobalResponse<Void>> logout(
+            @RequestHeader("Authorization") String authHeader
+    ) {
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            authService.logout(authHeader.substring(7));
+        }
+        return ResponseEntity.ok(new GlobalResponse<>((Void) null));
     }
 
 }
