@@ -5,16 +5,17 @@ import com.example.employeeservice.dtos.CreateEmployeeDTO;
 import com.example.employeeservice.dtos.EmployeeCreatedEvent;
 import com.example.employeeservice.dtos.EmployeeResponse;
 import com.example.employeeservice.dtos.EmployeeResponseDTO;
+import com.example.employeeservice.dtos.PaginatedResponse;
 import com.example.employeeservice.dtos.UpdateEmployeeDTO;
 import com.example.employeeservice.entity.Employee;
 import com.example.employeeservice.entity.EmployeeListView;
 import com.example.employeeservice.entity.Outbox;
 import com.example.employeeservice.gateway.DepartmentGateway;
 import com.example.employeeservice.mapper.Mapper;
-import com.example.employeeservice.repo.EmployeeRepo;
-import com.example.employeeservice.repo.EmployeeQueryRepo;
-import com.example.employeeservice.repo.OutboxRepo;
 import com.example.employeeservice.query.service.EmployeeProjector;
+import com.example.employeeservice.repo.EmployeeQueryRepo;
+import com.example.employeeservice.repo.EmployeeRepo;
+import com.example.employeeservice.repo.OutboxRepo;
 import com.example.shared.events.EmployeeSagaEvent;
 import com.example.shared.monitoring.MetricsProvider;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -51,13 +52,25 @@ public class EmployeeServiceImpl implements EmployeeService {
     private final EmployeeProjector employeeProjector;
 
     @Override
-    public Page<EmployeeListView> findAll(int page, int size) {
+    public PaginatedResponse<EmployeeListView> findAll(int page, int size) {
         long startTime = System.currentTimeMillis();
         Pageable pageable = PageRequest.of(page, size);
         // Read from Projection
-        Page<EmployeeListView> result = employeeQueryRepo.findAll(pageable);
+        Page<EmployeeListView> pageResult = employeeQueryRepo.findAll(pageable);
+
+        PaginatedResponse<EmployeeListView> response = new PaginatedResponse<>(
+                pageResult.getContent(),
+                pageResult.getTotalPages(),
+                pageResult.getNumber(),
+                pageResult.getTotalElements(),
+                pageResult.hasNext(),
+                pageResult.hasPrevious(),
+                null,
+                null
+        );
+
         metricsProvider.recordExecutionTime("employee.find.all.time", System.currentTimeMillis() - startTime);
-        return result;
+        return response;
     }
 
     @Override
@@ -98,10 +111,10 @@ public class EmployeeServiceImpl implements EmployeeService {
         updatedEmployee.setEmail(employee.email());
 
         Employee employeeEntity = employeeRepo.save(updatedEmployee);
-        
+
         // Synchronize Read Model
         employeeProjector.update(employeeEntity);
-        
+
         metricsProvider.incrementCounter("employee.update.success");
         return Mapper.toResponseDTO(employeeEntity);
     }
@@ -114,10 +127,10 @@ public class EmployeeServiceImpl implements EmployeeService {
             throw CustomResponseException.ResourceNotFound("Employee with Id " + employeeId + " not found");
         }
         employeeRepo.deleteById(employeeId);
-        
+
         // Synchronize Read Model
         employeeProjector.delete(employeeId);
-        
+
         metricsProvider.incrementCounter("employee.delete.success");
     }
 
@@ -151,7 +164,7 @@ public class EmployeeServiceImpl implements EmployeeService {
         employee.setStatus(Employee.Status.PENDING);
 
         Employee savedEmployee = employeeRepo.save(employee);
-        
+
         // Synchronize Read Model (Project)
         employeeProjector.project(savedEmployee, response.data.name());
 
@@ -192,7 +205,7 @@ public class EmployeeServiceImpl implements EmployeeService {
 
         } catch (JsonProcessingException e) {
             log.error("Failed to serialize events", e);
-            throw CustomResponseException.BadRequest("Internal Server Error during event serialization");
+            throw CustomResponseException.InternalServerError("Internal Server Error during event serialization");
         }
 
         metricsProvider.incrementCounter("employee.create.success");
@@ -237,7 +250,7 @@ public class EmployeeServiceImpl implements EmployeeService {
                 .orElseThrow(() -> CustomResponseException.ResourceNotFound("Employee not found"));
         employee.setStatus(status);
         employeeRepo.save(employee);
-        
+
         // Synchronize Read Model
         employeeProjector.updateStatus(employeeId, status.name());
 

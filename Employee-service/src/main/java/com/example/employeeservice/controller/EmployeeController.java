@@ -3,13 +3,13 @@ package com.example.employeeservice.controller;
 import com.example.employeeservice.abstraction.EmployeeService;
 import com.example.employeeservice.dtos.CreateEmployeeDTO;
 import com.example.employeeservice.dtos.EmployeeResponseDTO;
+import com.example.employeeservice.dtos.PaginatedResponse;
 import com.example.employeeservice.dtos.UpdateEmployeeDTO;
 import com.example.employeeservice.entity.EmployeeListView;
 import core.GlobalResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -24,11 +24,11 @@ public class EmployeeController {
     private final EmployeeService employeeService;
 
     @GetMapping
-    public ResponseEntity<GlobalResponse<Page<EmployeeListView>>> getEmployees(
+    public ResponseEntity<GlobalResponse<PaginatedResponse<EmployeeListView>>> getEmployees(
             @RequestParam(defaultValue = "0") int page,
             @Max(100) @RequestParam(defaultValue = "10") int size
     ) {
-        Page<EmployeeListView> employees = employeeService.findAll(page, size);
+        PaginatedResponse<EmployeeListView> employees = employeeService.findAll(page, size);
         return ResponseEntity.ok(new GlobalResponse<>(employees));
     }
 
