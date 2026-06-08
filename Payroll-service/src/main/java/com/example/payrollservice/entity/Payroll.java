@@ -24,7 +24,10 @@ public class Payroll {
     private UUID employeeId;
 
     @Column(nullable = false)
-    private BigDecimal salary;
+    private BigDecimal grossSalary;
+
+    @Column(nullable = false)
+    private BigDecimal taxRate; // e.g., 0.20 for 20%
 
     @Column(nullable = false)
     private String status; // ACTIVE, INACTIVE
