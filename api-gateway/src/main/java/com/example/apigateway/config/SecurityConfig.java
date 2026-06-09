@@ -26,7 +26,12 @@ public class SecurityConfig {
                         .pathMatchers(
                                 "/api/v1/auth/login",
                                 "/api/v1/auth/signup",
-                                "/api/v1/auth/refresh"
+                                "/api/v1/auth/refresh",
+                                "/swagger-ui/**",
+                                "/swagger-ui.html",
+                                "/v3/api-docs/**",
+                                "/*/v3/api-docs/**",
+                                "/webjars/**"
                         ).permitAll()
                         .pathMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .pathMatchers("/api/v1/employees/**").authenticated()
@@ -37,9 +42,6 @@ public class SecurityConfig {
                         jwtAuthenticationFilter,
                         AUTHENTICATION
                 );
-
-//                .addFilterBefore(authFilter, UsernamePasswordAuthenticationFilter.class)
-//                .authenticationManager(authenticationManager(http));
 
         return http.build();
     }

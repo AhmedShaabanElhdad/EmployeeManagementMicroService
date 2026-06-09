@@ -15,6 +15,7 @@ java {
 
 ext {
     set('springCloudVersion', "2023.0.3")
+    set('awsSdkVersion', "2.25.10")
 }
 
 repositories {
@@ -26,6 +27,12 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
+
+    // OpenAPI Documentation
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.6.0'
+
+    // S3 Support
+    implementation "software.amazon.awssdk:s3:${awsSdkVersion}"
 
     // Redis & Caching
     implementation 'org.springframework.boot:spring-boot-starter-cache'
@@ -58,7 +65,6 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-oauth2-resource-server'
 
     developmentOnly 'org.springframework.boot:spring-boot-devtools'
-    // Removed spring-boot-docker-compose to resolve Flyway bean ambiguity in multi-db setup
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.kafka:spring-kafka-test'
@@ -70,6 +76,7 @@ dependencyManagement {
     imports {
         mavenBom "org.springframework.boot:spring-boot-dependencies:3.3.5"
         mavenBom "org.springframework.cloud:spring-cloud-dependencies:${springCloudVersion}"
+        mavenBom "software.amazon.awssdk:bom:${awsSdkVersion}"
     }
 }
 
