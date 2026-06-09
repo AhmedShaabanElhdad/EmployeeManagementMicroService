@@ -60,6 +60,9 @@ public class Employee {
     @Column(name = "department_id", nullable = false)
     private UUID departmentId;
 
+    @Column(name = "image_url")
+    private String imageUrl;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 50)
     private Status status = Status.PENDING;

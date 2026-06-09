@@ -29,6 +29,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.Instant;
 import java.util.List;
@@ -50,6 +51,7 @@ public class EmployeeServiceImpl implements EmployeeService {
     private final ObjectMapper objectMapper;
     private final MetricsProvider metricsProvider;
     private final EmployeeProjector employeeProjector;
+    private final S3FileStorageService s3FileStorageService;
 
     @Override
     public PaginatedResponse<EmployeeListView> findAll(int page, int size) {
@@ -256,5 +258,22 @@ public class EmployeeServiceImpl implements EmployeeService {
 
         log.info("Employee {} status updated to {}", employeeId, status);
         metricsProvider.incrementCounter("employee.status.update", "status", status.name());
+    }
+
+    @Override
+    @Transactional
+    @CachePut(value = "employees", key = "#employeeId")
+    public EmployeeResponseDTO uploadEmployeeImage(UUID employeeId, MultipartFile file) {
+        Employee employee = employeeRepo.findById(employeeId)
+                .orElseThrow(() -> CustomResponseException.ResourceNotFound("Employee not found"));
+
+        String imageUrl = s3FileStorageService.uploadFile(file);
+        employee.setImageUrl(imageUrl);
+        Employee savedEmployee = employeeRepo.save(employee);
+
+        // Synchronize Read Model
+        employeeProjector.update(savedEmployee);
+
+        return Mapper.toResponseDTO(savedEmployee);
     }
 }

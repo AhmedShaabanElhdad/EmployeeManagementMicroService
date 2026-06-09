@@ -21,6 +21,7 @@ public class EmployeeProjector {
                 .departmentName(departmentName)
                 .email(employee.getEmail())
                 .status(employee.getStatus().name())
+                .imageUrl(employee.getImageUrl())
                 .build();
         queryRepo.save(view);
     }
@@ -31,6 +32,7 @@ public class EmployeeProjector {
             view.setPosition(employee.getPosition());
             view.setEmail(employee.getEmail());
             view.setStatus(employee.getStatus().name());
+            view.setImageUrl(employee.getImageUrl());
             queryRepo.save(view);
         });
     }
