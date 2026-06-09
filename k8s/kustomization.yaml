@@ -13,3 +13,4 @@ resources:
   - department-service.yaml
   - notification-service.yaml
   - payroll-service.yaml
+  - stock-service.yaml

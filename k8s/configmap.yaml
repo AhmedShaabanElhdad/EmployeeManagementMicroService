@@ -13,3 +13,6 @@ data:
   EMPLOYEE_DB_URL: "jdbc:postgresql://postgres-employee:5432/employees"
   DEPARTMENT_DB_URL: "jdbc:postgresql://postgres-department:5432/department"
   PAYROLL_DB_URL: "jdbc:postgresql://postgres-payroll:5432/payroll"
+  CASSANDRA_CONTACT_POINTS: "cassandra"
+  CASSANDRA_KEYSPACE: "stock_keyspace"
+  CASSANDRA_LOCAL_DATACENTER: "datacenter1"
