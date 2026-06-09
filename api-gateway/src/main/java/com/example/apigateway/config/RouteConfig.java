@@ -76,6 +76,16 @@ public class RouteConfig {
                         .uri("lb://payroll-service")
                 )
 
+                .route("stock-service", route -> route
+                        .path("/api/v1/stocks/**")
+                        .filters(f -> f
+                                .circuitBreaker(config -> config
+                                        .setName("stockServiceCircuitBreaker")
+                                )
+                        )
+                        .uri("lb://stock-service")
+                )
+
                 .build();
     }
 }

@@ -98,9 +98,16 @@ kubectl apply -k k8s/
 
 ## 🔐 Security
 
-- **JWT**: Tokens are issued by Auth Service and validated at the Gateway.
-- **BCrypt**: Passwords are encrypted before storage.
-- **Resource Protection**: Internal APIs (like verification) are isolated or protected via filters.
+- **JWT Authentication**: Tokens are issued by the Auth Service and validated at the API Gateway.
+- **RBAC (Role-Based Access Control)**:
+    - **USER**: Standard access to employee features.
+    - **ADMIN**: Access to administrative endpoints (`/api/v1/admin/**`).
+    - **SERVICE**: Reserved for secure internal service-to-service communication.
+- **Internal API Protection**: All endpoints under `/internal/**` are restricted to the `SERVICE` role using Spring Security's `.requestMatchers("/internal/**").hasRole("SERVICE")`.
+- **Service-to-Service Auth**: 
+    - Services use a `Feign RequestInterceptor` to automatically inject a System JWT token with the `SERVICE` role for internal calls.
+    - `JwtAuthenticationConverter` is configured across microservices to correctly map the custom `role` claim from tokens to Spring Security authorities.
+- **BCrypt**: Passwords are securely hashed using BCrypt before storage.
 
 ## 📈 Distributed Patterns Applied
 
