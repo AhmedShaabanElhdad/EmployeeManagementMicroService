@@ -28,6 +28,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-security")
     implementation("org.springframework.boot:spring-boot-starter-oauth2-resource-server")
     implementation("org.springframework.boot:spring-boot-starter-data-cassandra")
+    implementation("org.springframework.boot:spring-boot-starter-amqp") // Added for RabbitMQ
     implementation("org.springframework.cloud:spring-cloud-starter-netflix-eureka-client")
     implementation("io.github.resilience4j:resilience4j-spring-boot3")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
