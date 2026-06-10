@@ -7,7 +7,7 @@ services:
     ports:
       - "8761:8761"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8761/actuator/health"]
+      test: ["CMD", "java", "-version"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -102,10 +102,23 @@ services:
       - "9003:9001"
     command: server /data --console-address ":9001"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      test: ["CMD-SHELL", "curl -f http://localhost:9000/minio/health/live || exit 1"]
       interval: 5s
       timeout: 5s
       retries: 5
+
+  minio-init:
+    image: minio/mc
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      /usr/bin/mc alias set myminio http://minio:9000 minioadmin minioadmin;
+      /usr/bin/mc mb myminio/employee-images || true;
+      /usr/bin/mc anonymous set public myminio/employee-images;
+      exit 0;
+      "
 
   zipkin:
     image: openzipkin/zipkin
@@ -126,6 +139,11 @@ services:
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
     ports:
       - "9092:9092"
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
 
   prometheus:
     image: prom/prometheus:latest
@@ -151,7 +169,6 @@ services:
     environment:
       - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-server:8761/eureka/
       - SPRING_DATA_REDIS_HOST=redis
-      - MANAGEMENT_ZIPKIN_TRACING_ENDPOINT=http://zipkin:9411/api/v2/spans
       - JWT_SECRET=VGhpc0lzQVN1cGVyU2VjdXJlSldUU2VjcmV0S2V5Rm9ySFM1MTI=
     depends_on:
       eureka-server:
@@ -163,6 +180,8 @@ services:
     build:
       context: .
       dockerfile: Auth-service/Dockerfile
+    ports:
+      - "8081:8081"
     environment:
       - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-server:8761/eureka/
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-auth:5432/user
@@ -183,6 +202,8 @@ services:
     build:
       context: .
       dockerfile: Employee-service/Dockerfile
+    ports:
+      - "9000:9000"
     environment:
       - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-server:8761/eureka/
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-employee:5432/employees
@@ -208,7 +229,7 @@ services:
       rabbitmq:
         condition: service_healthy
       kafka:
-        condition: service_started
+        condition: service_healthy
       minio:
         condition: service_healthy
 
@@ -216,6 +237,8 @@ services:
     build:
       context: .
       dockerfile: Department-service/Dockerfile
+    ports:
+      - "8082:8082"
     environment:
       - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-server:8761/eureka/
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-department:5432/department
@@ -236,6 +259,8 @@ services:
     build:
       context: .
       dockerfile: Payroll-service/Dockerfile
+    ports:
+      - "8084:8084"
     environment:
       - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-server:8761/eureka/
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres-payroll:5432/payroll
@@ -250,18 +275,20 @@ services:
       postgres-payroll:
         condition: service_healthy
       kafka:
-        condition: service_started
+        condition: service_healthy
 
   notification-service:
     build:
       context: .
       dockerfile: Notification/Dockerfile
+    ports:
+      - "8085:8085"
     environment:
       - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-server:8761/eureka/
       - SPRING_RABBITMQ_HOST=rabbitmq
       - SPRING_RABBITMQ_USERNAME=myuser
       - SPRING_RABBITMQ_PASSWORD=secret
-      - GEMAI_APP_USERNAME=xxxxx@gmail.com
+      - GEMAI_APP_USERNAME=your-email@gmail.com
       - GEMAI_APP_PASSWORD=your-app-password
       - JWT_SECRET=VGhpc0lzQVN1cGVyU2VjdXJlSldUU2VjcmV0S2V5Rm9ySFM1MTI=
       - INTERNAL_API_SECRET=your-internal-api-secret-key-change-me-in-production
