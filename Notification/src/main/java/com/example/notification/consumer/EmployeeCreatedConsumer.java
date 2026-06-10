@@ -3,10 +3,12 @@ package com.example.notification.consumer;
 import com.example.notification.config.RabbitMQConfig;
 import com.example.notification.dto.EmployeeCreatedEvent;
 import com.example.notification.service.EmailService;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Component
 @Slf4j
@@ -24,6 +26,6 @@ public class EmployeeCreatedConsumer {
                 event.email()
         );
 
-        emailService.sendMessage(event.email(), event.token());
+        emailService.sendRegistrationMessage(event.email(), event.token());
     }
 }
