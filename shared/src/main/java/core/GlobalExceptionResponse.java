@@ -2,9 +2,10 @@ package core;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.List;
@@ -31,6 +32,10 @@ public class GlobalExceptionResponse {
 
         return new ResponseEntity<>(new GlobalResponse<>(errors), HttpStatus.BAD_REQUEST);
     }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<GlobalResponse<?>> handleMaxSizeException(MaxUploadSizeExceededException exc) {
+        var errors = List.of(new GlobalResponse.ErrorItem("File too large! Maximum upload size is 10MB."));
+        return new ResponseEntity<>(new GlobalResponse<>(errors), HttpStatus.PAYLOAD_TOO_LARGE);
+    }
 }
-
-
