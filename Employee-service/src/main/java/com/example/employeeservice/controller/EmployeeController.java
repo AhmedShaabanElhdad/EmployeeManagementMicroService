@@ -13,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.UUID;
 
@@ -59,5 +60,14 @@ public class EmployeeController {
     ) {
         EmployeeResponseDTO insertedEmployee = employeeService.createEmployee(createEmployeeDTO);
         return new ResponseEntity<>(new GlobalResponse<>(insertedEmployee), HttpStatus.CREATED);
+    }
+
+    @PostMapping("/{employeeId}/image")
+    public ResponseEntity<GlobalResponse<EmployeeResponseDTO>> uploadImage(
+            @PathVariable UUID employeeId,
+            @RequestParam("file") MultipartFile file
+    ) {
+        EmployeeResponseDTO response = employeeService.uploadEmployeeImage(employeeId, file);
+        return ResponseEntity.ok(new GlobalResponse<>(response));
     }
 }

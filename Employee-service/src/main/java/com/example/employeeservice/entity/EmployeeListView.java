@@ -22,4 +22,5 @@ public class EmployeeListView {
     private String departmentName;
     private String email;
     private String status;
+    private String imageUrl;
 }
