@@ -5,6 +5,7 @@ import com.example.employeeservice.entity.EmployeeListView;
 import com.example.employeeservice.repo.EmployeeQueryRepo;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Mono;
 
 import java.util.UUID;
 
@@ -13,7 +14,7 @@ import java.util.UUID;
 public class EmployeeProjector {
     private final EmployeeQueryRepo queryRepo;
 
-    public void project(Employee employee, String departmentName) {
+    public Mono<Void> project(Employee employee, String departmentName) {
         EmployeeListView view = EmployeeListView.builder()
                 .id(employee.getId())
                 .fullName(employee.getFirstName() + " " + employee.getLastName())
@@ -23,28 +24,30 @@ public class EmployeeProjector {
                 .status(employee.getStatus().name())
                 .imageUrl(employee.getImageUrl())
                 .build();
-        queryRepo.save(view);
+        return queryRepo.save(view).then();
     }
 
-    public void update(Employee employee) {
-        queryRepo.findById(employee.getId()).ifPresent(view -> {
-            view.setFullName(employee.getFirstName() + " " + employee.getLastName());
-            view.setPosition(employee.getPosition());
-            view.setEmail(employee.getEmail());
-            view.setStatus(employee.getStatus().name());
-            view.setImageUrl(employee.getImageUrl());
-            queryRepo.save(view);
-        });
+    public Mono<Void> update(Employee employee) {
+        return queryRepo.findById(employee.getId())
+                .flatMap(view -> {
+                    view.setFullName(employee.getFirstName() + " " + employee.getLastName());
+                    view.setPosition(employee.getPosition());
+                    view.setEmail(employee.getEmail());
+                    view.setStatus(employee.getStatus().name());
+                    view.setImageUrl(employee.getImageUrl());
+                    return queryRepo.save(view);
+                }).then();
     }
 
-    public void delete(UUID employeeId) {
-        queryRepo.deleteById(employeeId);
+    public Mono<Void> delete(UUID employeeId) {
+        return queryRepo.deleteById(employeeId);
     }
 
-    public void updateStatus(UUID employeeId, String status) {
-        queryRepo.findById(employeeId).ifPresent(view -> {
-            view.setStatus(status);
-            queryRepo.save(view);
-        });
+    public Mono<Void> updateStatus(UUID employeeId, String status) {
+        return queryRepo.findById(employeeId)
+                .flatMap(view -> {
+                    view.setStatus(status);
+                    return queryRepo.save(view);
+                }).then();
     }
 }

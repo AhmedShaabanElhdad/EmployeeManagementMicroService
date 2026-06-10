@@ -1,70 +1,59 @@
 package com.example.employeeservice.entity;
 
-import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.hibernate.annotations.UuidGenerator;
 import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.LastModifiedDate;
-import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+import org.springframework.data.relational.core.mapping.Column;
+import org.springframework.data.relational.core.mapping.Table;
 
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
 
-@Entity
-@Table(
-        name = "employee",
-        indexes = {
-                @Index(name = "idx_employee_email", columnList = "email"),
-                @Index(name = "idx_employee_department", columnList = "department_id")
-        }
-)
-@EntityListeners(AuditingEntityListener.class)
+@Table("employee")
 @Getter
 @Setter
 @AllArgsConstructor
 @NoArgsConstructor
 public class Employee {
     @Id
-    @GeneratedValue(generator = "UUID")
-    @UuidGenerator
     private UUID id;
 
-    @Column(name = "first_name", nullable = false, length = 100)
+    @Column("first_name")
     private String firstName;
 
-    @Column(name = "last_name", nullable = false, length = 100)
+    @Column("last_name")
     private String lastName;
 
-    @Column(name = "email", unique = true)
+    @Column("email")
     private String email;
 
-    @Column(name = "hire_at", nullable = false)
+    @Column("hire_at")
     private LocalDate hireAt;
 
-    @Column(name = "phone_number", nullable = false, length = 25)
+    @Column("phone_number")
     private String phoneNumber;
 
-    @Column(name = "is_verified", columnDefinition = "BOOLEAN DEFAULT FALSE", nullable = false)
+    @Column("is_verified")
     private boolean isVerified;
 
-    @Column(name = "account_creation_token")
+    @Column("account_creation_token")
     private String accountCreationToken;
 
-    @Column(name = "position", nullable = false)
+    @Column("position")
     private String position;
 
-    @Column(name = "department_id", nullable = false)
+    @Column("department_id")
     private UUID departmentId;
 
-    @Column(name = "image_url")
+    @Column("image_url")
     private String imageUrl;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 50)
+    @Column("status")
     private Status status = Status.PENDING;
 
     @CreatedDate

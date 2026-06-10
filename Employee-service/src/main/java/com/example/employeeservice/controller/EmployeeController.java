@@ -12,8 +12,9 @@ import jakarta.validation.constraints.Max;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
+import reactor.core.publisher.Mono;
 
 import java.util.UUID;
 
@@ -25,49 +26,49 @@ public class EmployeeController {
     private final EmployeeService employeeService;
 
     @GetMapping
-    public ResponseEntity<GlobalResponse<PaginatedResponse<EmployeeListView>>> getEmployees(
+    public Mono<ResponseEntity<GlobalResponse<PaginatedResponse<EmployeeListView>>>> getEmployees(
             @RequestParam(defaultValue = "0") int page,
             @Max(100) @RequestParam(defaultValue = "10") int size
     ) {
-        PaginatedResponse<EmployeeListView> employees = employeeService.findAll(page, size);
-        return ResponseEntity.ok(new GlobalResponse<>(employees));
+        return employeeService.findAll(page, size)
+                .map(employees -> ResponseEntity.ok(new GlobalResponse<>(employees)));
     }
 
     @GetMapping("/{employeeId}")
-    public ResponseEntity<GlobalResponse<EmployeeListView>> getEmployee(@PathVariable UUID employeeId) {
-        EmployeeListView employee = employeeService.findEmployeeById(employeeId);
-        return ResponseEntity.ok(new GlobalResponse<>(employee));
+    public Mono<ResponseEntity<GlobalResponse<EmployeeListView>>> getEmployee(@PathVariable UUID employeeId) {
+        return employeeService.findEmployeeById(employeeId)
+                .map(employee -> ResponseEntity.ok(new GlobalResponse<>(employee)));
     }
 
     @DeleteMapping("/{employeeId}")
-    public ResponseEntity<Void> deleteEmployee(@PathVariable UUID employeeId) {
-        employeeService.deleteEmployee(employeeId);
-        return ResponseEntity.noContent().build();
+    public Mono<ResponseEntity<Void>> deleteEmployee(@PathVariable UUID employeeId) {
+        return employeeService.deleteEmployee(employeeId)
+                .thenReturn(ResponseEntity.noContent().build());
     }
 
     @PutMapping("/{employeeId}")
-    public ResponseEntity<GlobalResponse<EmployeeResponseDTO>> updateEmployee(
+    public Mono<ResponseEntity<GlobalResponse<EmployeeResponseDTO>>> updateEmployee(
             @PathVariable UUID employeeId,
             @RequestBody @Valid UpdateEmployeeDTO updateEmployeeDTO
     ) {
-        EmployeeResponseDTO updatedEmployee = employeeService.updateEmployee(employeeId, updateEmployeeDTO);
-        return ResponseEntity.ok(new GlobalResponse<>(updatedEmployee));
+        return employeeService.updateEmployee(employeeId, updateEmployeeDTO)
+                .map(updatedEmployee -> ResponseEntity.ok(new GlobalResponse<>(updatedEmployee)));
     }
 
     @PostMapping
-    public ResponseEntity<GlobalResponse<EmployeeResponseDTO>> create(
+    public Mono<ResponseEntity<GlobalResponse<EmployeeResponseDTO>>> create(
             @RequestBody @Valid CreateEmployeeDTO createEmployeeDTO
     ) {
-        EmployeeResponseDTO insertedEmployee = employeeService.createEmployee(createEmployeeDTO);
-        return new ResponseEntity<>(new GlobalResponse<>(insertedEmployee), HttpStatus.CREATED);
+        return employeeService.createEmployee(createEmployeeDTO)
+                .map(insertedEmployee -> new ResponseEntity<>(new GlobalResponse<>(insertedEmployee), HttpStatus.CREATED));
     }
 
     @PostMapping("/{employeeId}/image")
-    public ResponseEntity<GlobalResponse<EmployeeResponseDTO>> uploadImage(
+    public Mono<ResponseEntity<GlobalResponse<EmployeeResponseDTO>>> uploadImage(
             @PathVariable UUID employeeId,
-            @RequestParam("file") MultipartFile file
+            @RequestPart("file") Mono<FilePart> file
     ) {
-        EmployeeResponseDTO response = employeeService.uploadEmployeeImage(employeeId, file);
-        return ResponseEntity.ok(new GlobalResponse<>(response));
+        return employeeService.uploadEmployeeImage(employeeId, file)
+                .map(response -> ResponseEntity.ok(new GlobalResponse<>(response)));
     }
 }

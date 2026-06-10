@@ -1,32 +1,18 @@
 package com.example.employeeservice.entity;
 
-import org.hibernate.annotations.UuidGenerator;
-
-import java.time.Instant;
-import java.util.UUID;
-
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.Id;
-import jakarta.persistence.Index;
-import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.relational.core.mapping.Column;
+import org.springframework.data.relational.core.mapping.Table;
 
-// todo @Lock(PESSIMISTIC_WRITE)
-@Entity
-@Table(
-        name = "outbox",
-        indexes = {
-                @Index(
-                        name = "idx_outbox_processed",
-                        columnList = "processed"
-                )
-        })
+import java.time.Instant;
+import java.util.UUID;
+
+@Table("outbox")
 @Getter
 @Setter
 @Builder
@@ -35,31 +21,30 @@ import lombok.Setter;
 public class Outbox {
 
     @Id
-    @GeneratedValue(generator = "UUID")
-    @UuidGenerator
     private UUID id;
 
-    @Column(nullable = false)
+    @Column("event_id")
     private UUID eventId;
 
-    @Column(nullable = false)
+    @Column("aggregate_id")
     private String aggregateId;
 
-    @Column(nullable = false)
+    @Column("aggregate_type")
     private String aggregateType;
 
-    @Column(nullable = false)
+    @Column("event_type")
     private String eventType;
 
-    @Column(nullable = false, columnDefinition = "TEXT")
+    @Column("payload")
     private String payload;
 
-    @Column(nullable = false)
+    @Column("created_at")
     private Instant createdAt;
 
+    @Column("processed_at")
     private Instant processedAt;
 
-    @Column(nullable = false)
+    @Column("processed")
     @Builder.Default
     private boolean processed = false;
 }

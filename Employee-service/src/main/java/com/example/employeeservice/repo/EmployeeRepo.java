@@ -1,19 +1,19 @@
 package com.example.employeeservice.repo;
 
 import com.example.employeeservice.entity.Employee;
-import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.r2dbc.repository.R2dbcRepository;
 import org.springframework.stereotype.Repository;
+import reactor.core.publisher.Mono;
 
-import java.util.Optional;
 import java.util.UUID;
 
 @Repository
-public interface EmployeeRepo extends JpaRepository<Employee, UUID> {
-    Optional<Employee> findOneByAccountCreationToken(String token);
+public interface EmployeeRepo extends R2dbcRepository<Employee, UUID> {
+    Mono<Employee> findOneByAccountCreationToken(String token);
 
-    boolean existsByEmail(String email);
+    Mono<Boolean> existsByEmail(String email);
 
-    boolean existsByEmailAndIdNot(String email, UUID id);
+    Mono<Boolean> existsByEmailAndIdNot(String email, UUID id);
     
-    long countByStatus(Employee.Status status);
+    Mono<Long> countByStatus(Employee.Status status);
 }

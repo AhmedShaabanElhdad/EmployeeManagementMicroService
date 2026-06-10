@@ -7,29 +7,30 @@ import com.example.employeeservice.dtos.PaginatedResponse;
 import com.example.employeeservice.dtos.UpdateEmployeeDTO;
 import com.example.employeeservice.entity.Employee;
 import com.example.employeeservice.entity.EmployeeListView;
-import org.springframework.web.multipart.MultipartFile;
+import org.springframework.http.codec.multipart.FilePart;
+import reactor.core.publisher.Mono;
 
 import java.util.UUID;
 
 public interface EmployeeService {
     // Read from Projection
-    PaginatedResponse<EmployeeListView> findAll(int page, int size);
+    Mono<PaginatedResponse<EmployeeListView>> findAll(int page, int size);
 
     // Read from Projection
-    EmployeeListView findEmployeeById(UUID id);
+    Mono<EmployeeListView> findEmployeeById(UUID id);
 
     // Command Operations
-    EmployeeResponseDTO updateEmployee(UUID id, UpdateEmployeeDTO updateEmployeeDTO);
+    Mono<EmployeeResponseDTO> updateEmployee(UUID id, UpdateEmployeeDTO updateEmployeeDTO);
 
-    void deleteEmployee(UUID id);
+    Mono<Void> deleteEmployee(UUID id);
 
-    EmployeeResponseDTO createEmployee(CreateEmployeeDTO createEmployeeDTO);
+    Mono<EmployeeResponseDTO> createEmployee(CreateEmployeeDTO createEmployeeDTO);
 
-    EmployeeResponse findByToken(String token);
+    Mono<EmployeeResponse> findByToken(String token);
 
-    EmployeeResponse verifyEmployee(String userId);
+    Mono<EmployeeResponse> verifyEmployee(String userId);
 
-    void updateEmployeeStatus(UUID employeeId, Employee.Status status);
+    Mono<Void> updateEmployeeStatus(UUID employeeId, Employee.Status status);
 
-    EmployeeResponseDTO uploadEmployeeImage(UUID employeeId, MultipartFile file);
+    Mono<EmployeeResponseDTO> uploadEmployeeImage(UUID employeeId, Mono<FilePart> file);
 }
