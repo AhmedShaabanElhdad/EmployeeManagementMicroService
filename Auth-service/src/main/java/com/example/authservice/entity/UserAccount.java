@@ -57,42 +57,23 @@ public class UserAccount implements UserDetails {
     @Column(name = "employee_id", nullable = false)
     private UUID employeeId;
 
+    // Manual overrides to ensure compilation in all environments
+    @Override
+    public String getUsername() { return username; }
+    @Override
+    public String getPassword() { return password; }
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return List.of(new SimpleGrantedAuthority("ROLE_" + role.name()));
     }
-
     @Override
-    public String getPassword() {
-        return password;
-    }
-
+    public boolean isAccountNonExpired() { return true; }
     @Override
-    public String getUsername() {
-        return username;
-    }
-
+    public boolean isAccountNonLocked() { return !accountLocked; }
     @Override
-    public boolean isAccountNonExpired() {
-        return true;
-    }
-
+    public boolean isCredentialsNonExpired() { return true; }
     @Override
-    public boolean isAccountNonLocked() {
-        return !accountLocked;
-    }
+    public boolean isEnabled() { return enabled; }
 
-    @Override
-    public boolean isCredentialsNonExpired() {
-        return true;
-    }
-
-    @Override
-    public boolean isEnabled() {
-        return enabled;
-    }
-
-    public enum ROLE {
-        USER, ADMIN
-    }
+    public enum ROLE { USER, ADMIN }
 }
