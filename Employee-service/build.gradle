@@ -28,6 +28,9 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
 
+    // Vault
+    implementation 'org.springframework.cloud:spring-cloud-starter-vault-config'
+
     // S3 Support
     implementation "software.amazon.awssdk:s3:${awsSdkVersion}"
 

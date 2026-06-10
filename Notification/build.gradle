@@ -36,6 +36,9 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-mail'
     implementation 'org.springframework.retry:spring-retry'
     
+    // Vault
+    implementation 'org.springframework.cloud:spring-cloud-starter-vault-config'
+
     // Kafka
     implementation 'org.springframework.kafka:spring-kafka'
     implementation 'org.apache.kafka:kafka-clients'
