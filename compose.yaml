@@ -7,7 +7,7 @@ services:
     ports:
       - "8761:8761"
     healthcheck:
-      test: ["CMD", "java", "-version"]
+      test: ["CMD-SHELL", "java -version || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -137,13 +137,15 @@ services:
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
     ports:
       - "9092:9092"
     healthcheck:
       test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 || exit 1"]
       interval: 10s
       timeout: 10s
-      retries: 10
+      retries: 15
 
   prometheus:
     image: prom/prometheus:latest
@@ -170,6 +172,8 @@ services:
       - EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE=http://eureka-server:8761/eureka/
       - SPRING_DATA_REDIS_HOST=redis
       - JWT_SECRET=VGhpc0lzQVN1cGVyU2VjdXJlSldUU2VjcmV0S2V5Rm9ySFM1MTI=
+      - INTERNAL_API_SECRET=VGhpc0lzQVN1cGVyU2sadasdldUU2VjcmV0S2V5Rm9ySFM1MTI=
+      - SPRING_DOCKER_COMPOSE_ENABLED=false
     depends_on:
       eureka-server:
         condition: service_healthy
@@ -188,14 +192,18 @@ services:
       - SPRING_DATASOURCE_USERNAME=admin
       - SPRING_DATASOURCE_PASSWORD=admin123
       - SPRING_DATA_REDIS_HOST=redis
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
       - JWT_SECRET=VGhpc0lzQVN1cGVyU2VjdXJlSldUU2VjcmV0S2V5Rm9ySFM1MTI=
-      - INTERNAL_API_SECRET=your-internal-api-secret-key-change-me-in-production
+      - INTERNAL_API_SECRET=VGhpc0lzQVN1cGVyU2sadasdldUU2VjcmV0S2V5Rm9ySFM1MTI=
+      - SPRING_DOCKER_COMPOSE_ENABLED=false
     depends_on:
       eureka-server:
         condition: service_healthy
       postgres-auth:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      kafka:
         condition: service_healthy
 
   employee-service:
@@ -217,8 +225,9 @@ services:
       - AWS_S3_SECRET_KEY=minioadmin
       - AWS_S3_BUCKET=employee-images
       - JWT_SECRET=VGhpc0lzQVN1cGVyU2VjdXJlSldUU2VjcmV0S2V5Rm9ySFM1MTI=
-      - INTERNAL_API_SECRET=your-internal-api-secret-key-change-me-in-production
+      - INTERNAL_API_SECRET=VGhpc0lzQVN1cGVyU2sadasdldUU2VjcmV0S2V5Rm9ySFM1MTI=
       - MANAGEMENT_ZIPKIN_TRACING_ENDPOINT=http://zipkin:9411/api/v2/spans
+      - SPRING_DOCKER_COMPOSE_ENABLED=false
     depends_on:
       eureka-server:
         condition: service_healthy
@@ -232,6 +241,8 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
 
   department-service:
     build:
@@ -246,7 +257,8 @@ services:
       - SPRING_DATASOURCE_PASSWORD=admin123
       - SPRING_DATA_REDIS_HOST=redis
       - JWT_SECRET=VGhpc0lzQVN1cGVyU2VjdXJlSldUU2VjcmV0S2V5Rm9ySFM1MTI=
-      - INTERNAL_API_SECRET=your-internal-api-secret-key-change-me-in-production
+      - INTERNAL_API_SECRET=VGhpc0lzQVN1cGVyU2sadasdldUU2VjcmV0S2V5Rm9ySFM1MTI=
+      - SPRING_DOCKER_COMPOSE_ENABLED=false
     depends_on:
       eureka-server:
         condition: service_healthy
@@ -268,7 +280,8 @@ services:
       - SPRING_DATASOURCE_PASSWORD=admin123
       - SPRING_KAFKA_BOOTSTRAP_SERVERS=kafka:9092
       - JWT_SECRET=VGhpc0lzQVN1cGVyU2VjdXJlSldUU2VjcmV0S2V5Rm9ySFM1MTI=
-      - INTERNAL_API_SECRET=your-internal-api-secret-key-change-me-in-production
+      - INTERNAL_API_SECRET=VGhpc0lzQVN1cGVyU2sadasdldUU2VjcmV0S2V5Rm9ySFM1MTI=
+      - SPRING_DOCKER_COMPOSE_ENABLED=false
     depends_on:
       eureka-server:
         condition: service_healthy
@@ -288,11 +301,13 @@ services:
       - SPRING_RABBITMQ_HOST=rabbitmq
       - SPRING_RABBITMQ_USERNAME=myuser
       - SPRING_RABBITMQ_PASSWORD=secret
-      - GEMAI_APP_USERNAME=your-email@gmail.com
-      - GEMAI_APP_PASSWORD=your-app-password
+      - MAIL_USERNAME=ahmed.shaaban.elhdah@gmail.com
+      - MAIL_PASSWORD=your-app-password
+      - GEMAI_APP_USERNAME=ahmed.shaaban.elhdah@gmail.com
       - JWT_SECRET=VGhpc0lzQVN1cGVyU2VjdXJlSldUU2VjcmV0S2V5Rm9ySFM1MTI=
-      - INTERNAL_API_SECRET=your-internal-api-secret-key-change-me-in-production
+      - INTERNAL_API_SECRET=VGhpc0lzQVN1cGVyU2sadasdldUU2VjcmV0S2V5Rm9ySFM1MTI=
       - BACKEND_ORIGIN=http://api-gateway:8080
+      - SPRING_DOCKER_COMPOSE_ENABLED=false
     depends_on:
       eureka-server:
         condition: service_healthy

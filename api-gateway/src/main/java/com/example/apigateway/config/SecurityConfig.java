@@ -1,15 +1,20 @@
 package com.example.apigateway.config;
 
-import static org.springframework.security.config.web.server.SecurityWebFiltersOrder.AUTHENTICATION;
-
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity;
+import org.springframework.security.config.web.server.SecurityWebFiltersOrder;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
 import org.springframework.security.web.server.SecurityWebFilterChain;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.reactive.CorsConfigurationSource;
+import org.springframework.web.cors.reactive.UrlBasedCorsConfigurationSource;
+
+import java.util.Arrays;
+import java.util.Collections;
 
 import lombok.RequiredArgsConstructor;
+import reactor.core.publisher.Mono;
 
 @Configuration
 @EnableWebFluxSecurity
@@ -18,29 +23,33 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
     @Bean
-    SecurityWebFilterChain securityFilterChain(ServerHttpSecurity http) throws Exception {
-        http
-                .cors(Customizer.withDefaults())
+    public SecurityWebFilterChain securityFilterChain(ServerHttpSecurity http) {
+        return http
                 .csrf(ServerHttpSecurity.CsrfSpec::disable)
-                .authorizeExchange((authorize) -> authorize
-                        .pathMatchers(
-                                "/api/v1/auth/login",
-                                "/api/v1/auth/signup",
-                                "/api/v1/auth/refresh"
-                        ).permitAll()
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .exceptionHandling(exceptionHandling -> exceptionHandling
+                        .accessDeniedHandler((exchange, denied) -> Mono.error(denied))
+                        .authenticationEntryPoint((exchange, authEx) -> Mono.error(authEx))
+                )
+                .authorizeExchange(authorize -> authorize
+                        .pathMatchers("/api/v1/auth/**", "/fallback/**").permitAll()
                         .pathMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .pathMatchers("/api/v1/employees/**").authenticated()
-                        .anyExchange()
-                        .authenticated()
+                        .anyExchange().authenticated()
+                )
+                .addFilterAt(jwtAuthenticationFilter, SecurityWebFiltersOrder.AUTHENTICATION)
+                .build();
+    }
 
-                ).addFilterAt(
-                        jwtAuthenticationFilter,
-                        AUTHENTICATION
-                );
-
-//                .addFilterBefore(authFilter, UsernamePasswordAuthenticationFilter.class)
-//                .authenticationManager(authenticationManager(http));
-
-        return http.build();
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+        configuration.setAllowedOriginPatterns(Collections.singletonList("*"));
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        configuration.setAllowedHeaders(Collections.singletonList("*"));
+        configuration.setAllowCredentials(true);
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
     }
 }
