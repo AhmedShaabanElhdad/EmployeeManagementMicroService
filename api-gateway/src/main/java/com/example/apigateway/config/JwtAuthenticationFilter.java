@@ -11,7 +11,6 @@ import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.WebFilter;
 import org.springframework.web.server.WebFilterChain;
 
-import java.util.Set;
 import java.util.UUID;
 
 import io.jsonwebtoken.Claims;
@@ -37,13 +36,8 @@ public class JwtAuthenticationFilter implements WebFilter {
 
         log.info("Incoming request {} {}", method, exchange.getRequest().getURI());
 
-        Set<String> publicEndpoints = Set.of(
-                "/api/v1/auth/login",
-                "/api/v1/auth/signup",
-                "/api/v1/auth/refresh"
-        );
-
-        if (publicEndpoints.contains(path)) {
+        // Skip JWT validation for public endpoints and fallbacks
+        if (path.startsWith("/api/v1/auth/") || path.startsWith("/fallback/")) {
             return chain.filter(exchange);
         }
 
@@ -63,7 +57,6 @@ public class JwtAuthenticationFilter implements WebFilter {
             return exchange.getResponse().setComplete();
         }
 
-        // Correlation ID Strategy: Check for existing ID first for end-to-end tracing
         String correlationId = exchange.getRequest().getHeaders().getFirst("X-Correlation-Id");
         if (correlationId == null || correlationId.isEmpty()) {
             correlationId = UUID.randomUUID().toString();
