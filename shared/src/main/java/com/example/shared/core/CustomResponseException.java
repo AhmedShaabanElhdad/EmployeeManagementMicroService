@@ -24,7 +24,7 @@ public class CustomResponseException extends RuntimeException {
     }
 
     public static CustomResponseException BadCredential() {
-        return new CustomResponseException(400, "Bad Credentials");
+        return new CustomResponseException(401, "Bad Credentials");
     }
 
     public static CustomResponseException InternalServerError(String message) {
