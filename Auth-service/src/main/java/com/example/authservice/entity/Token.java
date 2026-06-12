@@ -23,13 +23,14 @@ public class Token {
     private String token;
 
     @Enumerated(EnumType.STRING)
+    @Builder.Default
     private TokenType type = TokenType.BEARER;
 
     private boolean revoked;
 
     private boolean expired;
 
-    @ManyToOne(fetch = LazyType.LAZY)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
     private UserAccount user;
 
