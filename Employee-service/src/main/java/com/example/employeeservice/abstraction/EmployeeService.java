@@ -7,6 +7,7 @@ import com.example.employeeservice.dtos.PaginatedResponse;
 import com.example.employeeservice.dtos.UpdateEmployeeDTO;
 import com.example.employeeservice.entity.Employee;
 import com.example.employeeservice.entity.EmployeeListView;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.UUID;
 
@@ -29,4 +30,6 @@ public interface EmployeeService {
     EmployeeResponse verifyEmployee(String userId);
 
     void updateEmployeeStatus(UUID employeeId, Employee.Status status);
+
+    EmployeeResponseDTO uploadEmployeeImage(UUID employeeId, MultipartFile file);
 }

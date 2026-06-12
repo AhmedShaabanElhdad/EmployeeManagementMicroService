@@ -14,6 +14,7 @@ public record EmployeeResponseDTO(
         boolean isVerified,
         String position,
         UUID departmentId,
-        Employee.Status status
+        Employee.Status status,
+        String imageUrl
 ) {
 }

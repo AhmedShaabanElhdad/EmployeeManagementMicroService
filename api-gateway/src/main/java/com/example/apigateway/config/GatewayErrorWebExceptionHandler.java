@@ -2,23 +2,27 @@ package com.example.apigateway.config;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import core.GlobalResponse;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.boot.web.reactive.error.ErrorWebExceptionHandler;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.http.server.reactive.ServerHttpResponse;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.stereotype.Component;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.server.ServerWebExchange;
-import reactor.core.publisher.Mono;
 
 import java.util.List;
 
-@Configuration
+import core.GlobalResponse;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import reactor.core.publisher.Mono;
+
+@Component
 @Order(-2)
 @RequiredArgsConstructor
 @Slf4j
@@ -28,6 +32,8 @@ public class GatewayErrorWebExceptionHandler implements ErrorWebExceptionHandler
 
     @Override
     public Mono<Void> handle(ServerWebExchange exchange, Throwable ex) {
+        log.error("Gateway Exception caught", ex);
+
         ServerHttpResponse response = exchange.getResponse();
 
         if (response.isCommitted()) {
@@ -39,19 +45,30 @@ public class GatewayErrorWebExceptionHandler implements ErrorWebExceptionHandler
         HttpStatus status = HttpStatus.INTERNAL_SERVER_ERROR;
         String message = "Internal Server Error";
 
-        if (ex instanceof ResponseStatusException) {
-            status = (HttpStatus) ((ResponseStatusException) ex).getStatusCode();
-            message = ((ResponseStatusException) ex).getReason();
+        if (ex instanceof ResponseStatusException rse) {
+            HttpStatusCode statusCode = rse.getStatusCode();
+            status = HttpStatus.resolve(statusCode.value());
+            if (status == null) status = HttpStatus.INTERNAL_SERVER_ERROR;
+            message = rse.getReason() != null ? rse.getReason() : status.getReasonPhrase();
+        } else if (ex instanceof AccessDeniedException) {
+            status = HttpStatus.FORBIDDEN;
+            message = "Access Denied: " + ex.getMessage();
         } else if (ex instanceof SecurityException) {
             status = HttpStatus.UNAUTHORIZED;
+            message = "Security Error: " + ex.getMessage();
+        } else if (ex.getMessage() != null) {
             message = ex.getMessage();
         }
 
-        response.setStatusCode(status);
+        try {
+            response.setStatusCode(status);
+        } catch (UnsupportedOperationException e) {
+            log.warn("Could not set status code on response (already committed or immutable): {}", e.getMessage());
+        }
 
         GlobalResponse.ErrorItem errorItem = new GlobalResponse.ErrorItem(message);
         GlobalResponse<Void> globalResponse = new GlobalResponse<>(List.of(errorItem));
-        globalResponse.code = status.value();
+        globalResponse.code = (long) status.value();
 
         try {
             byte[] bytes = objectMapper.writeValueAsBytes(globalResponse);

@@ -2,7 +2,13 @@ package com.example.authservice.service;
 
 import com.example.authservice.abstraction.AuthService;
 import com.example.authservice.client.EmployeeClient;
-import com.example.authservice.dtos.*;
+import com.example.authservice.dtos.AuthResponseDTO;
+import com.example.authservice.dtos.EmployeeResponse;
+import com.example.authservice.dtos.LoginRequestDTO;
+import com.example.authservice.dtos.RefreshTokenRequestDTO;
+import com.example.authservice.dtos.SignUpRequestDTO;
+import com.example.authservice.dtos.UserIdRequestDTO;
+import com.example.authservice.dtos.UserResponseDTO;
 import com.example.authservice.entity.AuditLog;
 import com.example.authservice.entity.AuthOutbox;
 import com.example.authservice.entity.Token;
@@ -16,9 +22,7 @@ import com.example.authservice.repo.UserAccountRepo;
 import com.example.shared.monitoring.MetricsProvider;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import core.CustomResponseException;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Caching;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -34,13 +38,17 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
+import core.CustomResponseException;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class AuthServiceImpl implements AuthService {
 
     private static final int MAX_FAILED_ATTEMPTS = 5;
-    private static final long LOCK_TIME_DURATION = 15; // 15 minutes
+    private static final long LOCK_TIME_DURATION = 15;
 
     private final EmployeeClient employeeClient;
     private final UserAccountRepo userAccountRepo;
@@ -76,12 +84,14 @@ public class AuthServiceImpl implements AuthService {
         userAccount.setEmployeeId(employee.employeeId());
         userAccount.setRole(UserAccount.ROLE.USER);
 
-        userAccountRepo.save(userAccount);
+        // Capture the saved entity to get the generated ID
+        userAccount = userAccountRepo.save(userAccount);
 
         auditLog(userAccount.getUsername(), "SIGNUP", "User registered successfully");
         log.info("User created successfully: {}", signUpRequestDTO.username());
 
         UserIdRequestDTO verificationEvent = new UserIdRequestDTO(userAccount.getEmployeeId().toString());
+
         try {
             outboxRepo.save(AuthOutbox.builder()
                     .aggregateId(userAccount.getId().toString())
@@ -106,7 +116,6 @@ public class AuthServiceImpl implements AuthService {
         metricsProvider.incrementCounter("auth.login.request");
         log.info("Authenticating user: {}", loginRequestDTO.username());
 
-        // Lock the user record to manage failed attempts and sessions safely
         UserAccount userAccount = userAccountRepo.findByUsernameWithLock(loginRequestDTO.username())
                 .orElseThrow(() -> {
                     metricsProvider.incrementCounter("auth.login.error", "reason", "user_not_found");
@@ -127,13 +136,13 @@ public class AuthServiceImpl implements AuthService {
                     loginRequestDTO.username(),
                     loginRequestDTO.password()
             ));
-            
+
             resetFailedAttempts(userAccount);
             AuthResponseDTO response = generateAuthResponse(userAccount);
-            
+
             revokeAllUserTokens(userAccount);
             saveUserToken(userAccount, response.accessToken());
-            
+
             auditLog(userAccount.getUsername(), "LOGIN", "Login successful");
             metricsProvider.recordExecutionTime("auth.login.time", System.currentTimeMillis() - startTime);
             metricsProvider.incrementCounter("auth.login.success");
@@ -154,7 +163,6 @@ public class AuthServiceImpl implements AuthService {
         String refreshToken = refreshTokenRequestDTO.refreshToken();
         String username = jwtHelper.extractUsername(refreshToken);
 
-        // Lock the user record during refresh to prevent concurrent session rotations
         UserAccount userAccount = userAccountRepo.findByUsernameWithLock(username)
                 .orElseThrow(CustomResponseException::BadCredential);
 
@@ -166,7 +174,7 @@ public class AuthServiceImpl implements AuthService {
         AuthResponseDTO response = generateAuthResponse(userAccount);
         revokeAllUserTokens(userAccount);
         saveUserToken(userAccount, response.accessToken());
-        
+
         auditLog(username, "REFRESH", "Token refreshed");
         metricsProvider.incrementCounter("auth.refresh.success");
         return response;
@@ -175,12 +183,11 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     @Caching(evict = {
-        @CacheEvict(value = "auth_responses", allEntries = true),
-        @CacheEvict(value = "users", allEntries = true)
+            @CacheEvict(value = "auth_responses", allEntries = true),
+            @CacheEvict(value = "users", allEntries = true)
     })
     public void logout(String token) {
-        var storedToken = tokenRepo.findByToken(token)
-                .orElse(null);
+        var storedToken = tokenRepo.findByToken(token).orElse(null);
         if (storedToken != null) {
             storedToken.setExpired(true);
             storedToken.setRevoked(true);
@@ -203,8 +210,7 @@ public class AuthServiceImpl implements AuthService {
 
     private void revokeAllUserTokens(UserAccount user) {
         var validUserTokens = tokenRepo.findAllValidTokensByUser(user.getId());
-        if (validUserTokens.isEmpty())
-            return;
+        if (validUserTokens.isEmpty()) return;
         validUserTokens.forEach(token -> {
             token.setExpired(true);
             token.setRevoked(true);
@@ -241,8 +247,8 @@ public class AuthServiceImpl implements AuthService {
     }
 
     private boolean unlockWhenTimeExpired(UserAccount user) {
-        if (user.getLockTime() != null && 
-            user.getLockTime().plusMinutes(LOCK_TIME_DURATION).isBefore(LocalDateTime.now())) {
+        if (user.getLockTime() != null &&
+                user.getLockTime().plusMinutes(LOCK_TIME_DURATION).isBefore(LocalDateTime.now())) {
             user.setAccountLocked(false);
             user.setLockTime(null);
             user.setFailedAttempts(0);
@@ -255,7 +261,6 @@ public class AuthServiceImpl implements AuthService {
     private AuthResponseDTO generateAuthResponse(UserAccount userAccount) {
         String accessToken = jwtHelper.generateAccessToken(createClaims(userAccount, "access"), userAccount);
         String refreshToken = jwtHelper.generateRefreshToken(createClaims(userAccount, "refresh"), userAccount);
-
         return new AuthResponseDTO(accessToken, refreshToken);
     }
 
@@ -263,13 +268,11 @@ public class AuthServiceImpl implements AuthService {
         Map<String, Object> claims = new HashMap<>();
         claims.put("userId", user.getId());
         claims.put("type", type);
-
         if ("access".equals(type)) {
             claims.put("role", user.getRole());
             claims.put("employeeId", user.getEmployeeId());
             claims.put("jti", UUID.randomUUID());
         }
-
         return claims;
     }
 }

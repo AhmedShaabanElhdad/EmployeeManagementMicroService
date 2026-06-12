@@ -15,7 +15,8 @@ public class Mapper {
                 employee.isVerified(),
                 employee.getPosition(),
                 employee.getDepartmentId(),
-                employee.getStatus()
+                employee.getStatus(),
+                employee.getImageUrl()
         );
     }
 }
