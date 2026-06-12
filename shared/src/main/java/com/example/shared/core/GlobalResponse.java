@@ -15,7 +15,7 @@ public class GlobalResponse<T> {
     public T data;
     public List<ErrorItem> errorItems;
 
-    // Constructor for Success
+    // Standard Success Constructor
     public GlobalResponse(T data) {
         this.code = 200;
         this.status = SUCCESS;
@@ -23,7 +23,7 @@ public class GlobalResponse<T> {
         this.errorItems = null;
     }
 
-    // Constructor for Failure
+    // Explicit Failure Constructor
     public GlobalResponse(int code, List<ErrorItem> errorItems) {
         this.code = code;
         this.status = FAILURE;
@@ -33,7 +33,7 @@ public class GlobalResponse<T> {
 
     public record ErrorItem(String message) {}
 
-    // Static helper to avoid ambiguity
+    // Static helper to ensure failure status is always correct
     public static <T> GlobalResponse<T> error(int code, String message) {
         return new GlobalResponse<>(code, List.of(new ErrorItem(message)));
     }
