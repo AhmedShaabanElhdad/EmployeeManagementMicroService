@@ -33,6 +33,7 @@ public class SecurityConfig {
                 )
                 .authorizeExchange(authorize -> authorize
                         .pathMatchers("/api/v1/auth/**", "/fallback/**").permitAll()
+                        .pathMatchers("/swagger-ui/**",  "/swagger-ui.html", "/v3/api-docs/**", "/*/v3/api-docs/**","/webjars/**").permitAll()
                         .pathMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .pathMatchers("/api/v1/employees/**").authenticated()
                         .anyExchange().authenticated()
