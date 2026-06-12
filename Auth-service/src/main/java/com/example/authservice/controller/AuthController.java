@@ -16,7 +16,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import core.GlobalResponse;
+import com.example.shared.core.GlobalResponse;
+
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 

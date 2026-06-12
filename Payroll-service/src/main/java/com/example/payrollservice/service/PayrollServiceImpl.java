@@ -8,9 +8,11 @@ import com.example.payrollservice.repo.PayrollInvoiceRepo;
 import com.example.payrollservice.repo.PayrollRepo;
 import com.example.shared.events.PayrollInvoiceEvent;
 import com.example.shared.monitoring.MetricsProvider;
-import core.CustomResponseException;
+import com.example.shared.core.CustomResponseException;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -61,7 +63,7 @@ public class PayrollServiceImpl implements PayrollService {
     public PayrollInvoice generateMonthlyInvoice(UUID employeeId, String month) {
         long startTime = System.currentTimeMillis();
         Payroll payroll = getPayrollByEmployeeId(employeeId);
-        
+
         LocalDate now = LocalDate.now();
         // In a real app, 'month' parameter would define these dates
         LocalDate startOfMonth = now.withDayOfMonth(1);
@@ -69,9 +71,9 @@ public class PayrollServiceImpl implements PayrollService {
 
         // Fetch approved unpaid leaves
         List<LeaveRequest> unpaidLeaves = leaveRequestRepo.findByEmployeeIdAndStatusAndStartDateBetween(
-                employeeId, 
-                LeaveRequest.LeaveStatus.APPROVED, 
-                startOfMonth, 
+                employeeId,
+                LeaveRequest.LeaveStatus.APPROVED,
+                startOfMonth,
                 endOfMonth
         ).stream().filter(l -> l.getType() == LeaveRequest.LeaveType.VACATION_UNPAID).toList();
 
@@ -83,7 +85,7 @@ public class PayrollServiceImpl implements PayrollService {
         // Calculation Logic: Gross to Net
         BigDecimal dailyRate = payroll.getGrossSalary().divide(new BigDecimal("30"), 2, RoundingMode.HALF_UP);
         BigDecimal deductions = dailyRate.multiply(new BigDecimal(unpaidDays));
-        
+
         BigDecimal taxableAmount = payroll.getGrossSalary().subtract(deductions);
         BigDecimal taxAmount = taxableAmount.multiply(payroll.getTaxRate());
         BigDecimal netAmount = taxableAmount.subtract(taxAmount);
@@ -100,7 +102,7 @@ public class PayrollServiceImpl implements PayrollService {
                 .build();
 
         PayrollInvoice savedInvoice = invoiceRepo.save(invoice);
-        
+
         // Automated Email via Kafka Event
         // In this complex scenario, we assume email is needed. 
         // We'll pass a placeholder or implement an Employee Service lookup if needed.
@@ -114,7 +116,7 @@ public class PayrollServiceImpl implements PayrollService {
         );
 
         kafkaTemplate.send("payroll-invoice-topic", event);
-        
+
         metricsProvider.recordExecutionTime("payroll.invoice.generate.time", System.currentTimeMillis() - startTime);
         log.info("Invoice generated and sent to Kafka for employee: {}", employeeId);
         return savedInvoice;

@@ -5,9 +5,11 @@ import com.example.payrollservice.entity.LeaveRequest;
 import com.example.payrollservice.entity.Payroll;
 import com.example.payrollservice.entity.PayrollInvoice;
 import com.example.payrollservice.service.PayrollService;
-import core.GlobalResponse;
+import com.example.shared.core.GlobalResponse;
+
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -31,13 +33,13 @@ public class PayrollController {
     public ResponseEntity<GlobalResponse<LeaveRequest>> requestLeave(
             @PathVariable UUID employeeId,
             @RequestBody @Valid LeaveRequestDTO dto) {
-        
+
         LeaveRequest leaveRequest = LeaveRequest.builder()
                 .startDate(dto.startDate())
                 .endDate(dto.endDate())
                 .type(dto.type())
                 .build();
-                
+
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(new GlobalResponse<>(payrollService.requestLeave(employeeId, leaveRequest)));
     }

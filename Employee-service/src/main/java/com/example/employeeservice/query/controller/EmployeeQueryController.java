@@ -2,9 +2,12 @@ package com.example.employeeservice.query.controller;
 
 import com.example.employeeservice.entity.EmployeeListView;
 import com.example.employeeservice.repo.EmployeeQueryRepo;
-import core.GlobalResponse;
+import com.example.shared.core.GlobalResponse;
+
 import lombok.RequiredArgsConstructor;
+
 import org.springframework.web.bind.annotation.*;
+
 import java.util.List;
 
 @RestController

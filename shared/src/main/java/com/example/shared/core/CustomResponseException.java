@@ -1,13 +1,15 @@
-package core;
+package com.example.shared.core;
 
-import lombok.AllArgsConstructor;
 import lombok.Getter;
 
 @Getter
-@AllArgsConstructor
 public class CustomResponseException extends RuntimeException {
-    public int code;
-    public String message;
+    private final int code;
+
+    public CustomResponseException(int code, String message) {
+        super(message);
+        this.code = code;
+    }
 
     public static CustomResponseException ResourceNotFound(String message) {
         return new CustomResponseException(404, message);

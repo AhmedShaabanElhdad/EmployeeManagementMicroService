@@ -5,7 +5,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-import core.GlobalResponse;
+import com.example.shared.core.GlobalResponse;
+
 import reactor.core.publisher.Mono;
 
 @RestController
@@ -13,28 +14,28 @@ public class FallbackController {
 
     @GetMapping("/fallback/employees")
     public Mono<GlobalResponse<Void>> employeeFallback() {
-        return Mono.just(new GlobalResponse<>(List.of(
+        return Mono.just(new GlobalResponse<>(503, List.of(
                 new GlobalResponse.ErrorItem("Employee Service is currently unavailable. Please try again later.")
         )));
     }
 
     @GetMapping("/fallback/auth")
     public Mono<GlobalResponse<Void>> authFallback() {
-        return Mono.just(new GlobalResponse<>(List.of(
+        return Mono.just(new GlobalResponse<>(503, List.of(
                 new GlobalResponse.ErrorItem("Authentication Service is currently unavailable.")
         )));
     }
 
     @GetMapping("/fallback/department")
     public Mono<GlobalResponse<Void>> departmentFallback() {
-        return Mono.just(new GlobalResponse<>(List.of(
+        return Mono.just(new GlobalResponse<>(503, List.of(
                 new GlobalResponse.ErrorItem("Department Service is currently unavailable.")
         )));
     }
 
     @GetMapping("/fallback/payroll")
     public Mono<GlobalResponse<Void>> payrollFallback() {
-        return Mono.just(new GlobalResponse<>(List.of(
+        return Mono.just(new GlobalResponse<>(503, List.of(
                 new GlobalResponse.ErrorItem("Payroll Service is currently unavailable.")
         )));
     }

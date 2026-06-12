@@ -17,7 +17,9 @@ import org.springframework.web.server.ServerWebExchange;
 
 import java.util.List;
 
-import core.GlobalResponse;
+import com.example.shared.core.CustomResponseException;
+import com.example.shared.core.GlobalResponse;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Mono;
@@ -56,6 +58,12 @@ public class GatewayErrorWebExceptionHandler implements ErrorWebExceptionHandler
         } else if (ex instanceof SecurityException) {
             status = HttpStatus.UNAUTHORIZED;
             message = "Security Error: " + ex.getMessage();
+        } else if (ex instanceof CustomResponseException cre) {
+            status = HttpStatus.resolve(cre.getCode());
+            if (status == null) {
+                status = HttpStatus.INTERNAL_SERVER_ERROR;
+            }
+            message = cre.getMessage();
         } else if (ex.getMessage() != null) {
             message = ex.getMessage();
         }
@@ -67,8 +75,7 @@ public class GatewayErrorWebExceptionHandler implements ErrorWebExceptionHandler
         }
 
         GlobalResponse.ErrorItem errorItem = new GlobalResponse.ErrorItem(message);
-        GlobalResponse<Void> globalResponse = new GlobalResponse<>(List.of(errorItem));
-        globalResponse.code = (long) status.value();
+        GlobalResponse<Void> globalResponse = new GlobalResponse<>(status.value(), List.of(errorItem));
 
         try {
             byte[] bytes = objectMapper.writeValueAsBytes(globalResponse);

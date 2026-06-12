@@ -38,7 +38,9 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-import core.CustomResponseException;
+import com.example.shared.core.CustomResponseException;
+
+import feign.FeignException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -66,7 +68,16 @@ public class AuthServiceImpl implements AuthService {
     @CacheEvict(value = "users", key = "#signUpRequestDTO.username()")
     public UserResponseDTO signup(SignUpRequestDTO signUpRequestDTO, String token) {
         metricsProvider.incrementCounter("auth.signup.request");
-        EmployeeResponse employee = employeeClient.getEmployeeByToken(token);
+
+        EmployeeResponse employee;
+
+        try {
+            employee = employeeClient.getEmployeeByToken(token);
+        } catch (FeignException.NotFound ex) {
+            throw CustomResponseException.ResourceNotFound(
+                    "Employee not found");
+        }
+
 
         if (employee.verified()) {
             metricsProvider.incrementCounter("auth.signup.error", "reason", "already_verified");

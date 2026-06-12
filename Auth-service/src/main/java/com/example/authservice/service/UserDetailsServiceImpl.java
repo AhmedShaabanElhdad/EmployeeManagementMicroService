@@ -9,7 +9,8 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
-import core.CustomResponseException;
+import com.example.shared.core.CustomResponseException;
+
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 

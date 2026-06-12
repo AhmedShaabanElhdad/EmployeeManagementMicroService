@@ -35,7 +35,8 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
-import core.CustomResponseException;
+import com.example.shared.core.CustomResponseException;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 

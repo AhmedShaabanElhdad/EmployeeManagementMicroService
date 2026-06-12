@@ -17,15 +17,6 @@ ext {
     set('springCloudVersion', "2023.0.3")
 }
 
-configurations {
-    all {
-        // Globally exclude blocking/servlet dependencies to prevent Gateway conflicts
-        exclude group: 'org.springframework.boot', module: 'spring-boot-starter-web'
-        exclude group: 'org.springframework.boot', module: 'spring-boot-starter-tomcat'
-        exclude group: 'org.springframework', module: 'spring-webmvc'
-    }
-}
-
 dependencies {
     // Reactive Gateway
     implementation 'org.springframework.boot:spring-boot-starter-webflux'
@@ -43,18 +34,12 @@ dependencies {
 
     implementation 'org.springframework.boot:spring-boot-starter-data-redis-reactive'
 
-    // Provide gRPC classes to satisfy Gateway's auto-configuration introspection requirements during startup.
-    // This prevents NoClassDefFoundError: io/grpc/netty/NettyChannelBuilder.
-    // Standard Gateway auto-configs expect the unshaded grpc-netty classes.
+    // gRPC
     implementation 'io.grpc:grpc-netty:1.62.2'
     implementation 'io.grpc:grpc-protobuf:1.62.2'
     implementation 'io.grpc:grpc-stub:1.62.2'
 
-    implementation(project(':shared')) {
-        // Specifically exclude JPA as it brings in blocking JDBC dependencies
-        exclude group: 'org.springframework.boot', module: 'spring-boot-starter-data-jpa'
-        exclude group: 'org.hibernate.orm', module: 'hibernate-core'
-    }
+    implementation project(':shared')
 
     // Monitoring & Resilience
     implementation 'org.springframework.boot:spring-boot-starter-actuator'

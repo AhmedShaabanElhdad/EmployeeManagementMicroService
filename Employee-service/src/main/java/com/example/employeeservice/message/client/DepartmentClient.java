@@ -1,7 +1,8 @@
 package com.example.employeeservice.message.client;
 
 import com.example.employeeservice.dtos.DepartmentResponse;
-import core.GlobalResponse;
+import com.example.shared.core.GlobalResponse;
+
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
