@@ -2,22 +2,29 @@ package com.example.authservice.service;
 
 import com.example.authservice.abstraction.AuthService;
 import com.example.authservice.client.EmployeeClient;
-import com.example.authservice.dtos.*;
-import com.example.authservice.entity.*;
+import com.example.authservice.dtos.AuthResponseDTO;
+import com.example.authservice.dtos.EmployeeResponse;
+import com.example.authservice.dtos.LoginRequestDTO;
+import com.example.authservice.dtos.RefreshTokenRequestDTO;
+import com.example.authservice.dtos.SignUpRequestDTO;
+import com.example.authservice.dtos.UserIdRequestDTO;
+import com.example.authservice.dtos.UserResponseDTO;
+import com.example.authservice.entity.AuthOutbox;
+import com.example.authservice.entity.Token;
+import com.example.authservice.entity.UserAccount;
 import com.example.authservice.helper.JwtHelper;
 import com.example.authservice.mapper.Mapper;
-import com.example.authservice.repo.*;
-import com.example.shared.monitoring.MetricsProvider;
+import com.example.authservice.repo.AuthOutboxRepo;
+import com.example.authservice.repo.TokenRepo;
+import com.example.authservice.repo.UserAccountRepo;
 import com.example.shared.core.CustomResponseException;
+import com.example.shared.monitoring.MetricsProvider;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import feign.FeignException;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Caching;
 import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.LockedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -28,6 +35,10 @@ import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+
+import feign.FeignException;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
@@ -59,12 +70,14 @@ public class AuthServiceImpl implements AuthService {
         }
 
         if (employee.verified()) {
-            if (metricsProvider != null) metricsProvider.incrementCounter("auth.signup.error", "reason", "already_verified");
+            if (metricsProvider != null)
+                metricsProvider.incrementCounter("auth.signup.error", "reason", "already_verified");
             throw CustomResponseException.BadRequest("Account Already Verified");
         }
 
         if (userAccountRepo.findByUsername(signUpRequestDTO.username()).isPresent()) {
-            if (metricsProvider != null) metricsProvider.incrementCounter("auth.signup.error", "reason", "user_exists");
+            if (metricsProvider != null)
+                metricsProvider.incrementCounter("auth.signup.error", "reason", "user_exists");
             throw CustomResponseException.BadRequest("Username already exists");
         }
 
@@ -113,6 +126,8 @@ public class AuthServiceImpl implements AuthService {
             loginAttemptService.recordSuccess(loginRequestDTO.username());
             AuthResponseDTO response = generateAuthResponse(userAccount);
 
+            // isolated txn: reset attempts, audit, revoke old tokens, save new token
+
             revokeAllUserTokens(userAccount);
             saveUserToken(userAccount, response.accessToken());
 
@@ -128,7 +143,8 @@ public class AuthServiceImpl implements AuthService {
             // This prevents a TransactionSystemException from hiding the 401 error.
             loginAttemptService.recordFailedAttempt(loginRequestDTO.username());
             loginAttemptService.audit(loginRequestDTO.username(), "FAILED_LOGIN", "Invalid credentials");
-            if (metricsProvider != null) metricsProvider.incrementCounter("auth.login.error", "reason", "bad_credentials");
+            if (metricsProvider != null)
+                metricsProvider.incrementCounter("auth.login.error", "reason", "bad_credentials");
             throw e;
         }
     }

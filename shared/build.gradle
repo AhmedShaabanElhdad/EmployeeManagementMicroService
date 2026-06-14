@@ -25,19 +25,24 @@ dependencyManagement {
 }
 
 dependencies {
-    // Annotations and APIs that should be provided by the consuming services
+    // Strictly compileOnly as per requirement - each service must provide these
     compileOnly 'jakarta.validation:jakarta.validation-api'
     compileOnly 'jakarta.annotation:jakarta.annotation-api:2.1.1'
     compileOnly 'javax.annotation:javax.annotation-api:1.3.2'
+    compileOnly 'org.slf4j:slf4j-api'
+    compileOnly 'io.micrometer:micrometer-core'
     compileOnly 'org.springframework:spring-context'
     compileOnly 'org.springframework.boot:spring-boot-autoconfigure'
+    
+    // Jackson annotations for JSON serialization control
+    compileOnly 'com.fasterxml.jackson.core:jackson-annotations'
 
-    // Internal implementations for the shared module
-    implementation 'io.grpc:grpc-stub:1.62.2'
+    // gRPC - compileOnly for consumers
+    compileOnly 'io.grpc:grpc-stub:1.62.2'
+    compileOnly 'io.grpc:grpc-protobuf:1.62.2'
+    
+    // Internal to shared for code generation and stubs
     implementation 'io.grpc:grpc-netty-shaded:1.62.2'
-    implementation 'io.grpc:grpc-protobuf:1.62.2'
-    implementation 'org.slf4j:slf4j-api'
-    implementation 'io.micrometer:micrometer-core'
 
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
