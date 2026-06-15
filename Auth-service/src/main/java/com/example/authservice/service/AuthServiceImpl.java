@@ -9,16 +9,15 @@ import com.example.authservice.dtos.RefreshTokenRequestDTO;
 import com.example.authservice.dtos.SignUpRequestDTO;
 import com.example.authservice.dtos.UserIdRequestDTO;
 import com.example.authservice.dtos.UserResponseDTO;
-import com.example.authservice.entity.AuditLog;
 import com.example.authservice.entity.AuthOutbox;
 import com.example.authservice.entity.Token;
 import com.example.authservice.entity.UserAccount;
 import com.example.authservice.helper.JwtHelper;
 import com.example.authservice.mapper.Mapper;
-import com.example.authservice.repo.AuditLogRepo;
 import com.example.authservice.repo.AuthOutboxRepo;
 import com.example.authservice.repo.TokenRepo;
 import com.example.authservice.repo.UserAccountRepo;
+import com.example.shared.core.CustomResponseException;
 import com.example.shared.monitoring.MetricsProvider;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -26,19 +25,18 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Caching;
 import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.LockedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
-import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-import core.CustomResponseException;
+import feign.FeignException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -47,34 +45,39 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class AuthServiceImpl implements AuthService {
 
-    private static final int MAX_FAILED_ATTEMPTS = 5;
-    private static final long LOCK_TIME_DURATION = 15;
-
     private final EmployeeClient employeeClient;
     private final UserAccountRepo userAccountRepo;
     private final AuthOutboxRepo outboxRepo;
     private final TokenRepo tokenRepo;
-    private final AuditLogRepo auditLogRepo;
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtHelper jwtHelper;
     private final MetricsProvider metricsProvider;
     private final ObjectMapper objectMapper;
+    private final LoginAttemptService loginAttemptService;
 
     @Override
     @Transactional
     @CacheEvict(value = "users", key = "#signUpRequestDTO.username()")
     public UserResponseDTO signup(SignUpRequestDTO signUpRequestDTO, String token) {
-        metricsProvider.incrementCounter("auth.signup.request");
-        EmployeeResponse employee = employeeClient.getEmployeeByToken(token);
+        if (metricsProvider != null) metricsProvider.incrementCounter("auth.signup.request");
+
+        EmployeeResponse employee;
+        try {
+            employee = employeeClient.getEmployeeByToken(token);
+        } catch (FeignException.NotFound ex) {
+            throw CustomResponseException.ResourceNotFound("Employee not found");
+        }
 
         if (employee.verified()) {
-            metricsProvider.incrementCounter("auth.signup.error", "reason", "already_verified");
+            if (metricsProvider != null)
+                metricsProvider.incrementCounter("auth.signup.error", "reason", "already_verified");
             throw CustomResponseException.BadRequest("Account Already Verified");
         }
 
         if (userAccountRepo.findByUsername(signUpRequestDTO.username()).isPresent()) {
-            metricsProvider.incrementCounter("auth.signup.error", "reason", "user_exists");
+            if (metricsProvider != null)
+                metricsProvider.incrementCounter("auth.signup.error", "reason", "user_exists");
             throw CustomResponseException.BadRequest("Username already exists");
         }
 
@@ -84,14 +87,10 @@ public class AuthServiceImpl implements AuthService {
         userAccount.setEmployeeId(employee.employeeId());
         userAccount.setRole(UserAccount.ROLE.USER);
 
-        // Capture the saved entity to get the generated ID
         userAccount = userAccountRepo.save(userAccount);
-
-        auditLog(userAccount.getUsername(), "SIGNUP", "User registered successfully");
-        log.info("User created successfully: {}", signUpRequestDTO.username());
+        loginAttemptService.audit(userAccount.getUsername(), "SIGNUP", "User registered successfully");
 
         UserIdRequestDTO verificationEvent = new UserIdRequestDTO(userAccount.getEmployeeId().toString());
-
         try {
             outboxRepo.save(AuthOutbox.builder()
                     .aggregateId(userAccount.getId().toString())
@@ -101,11 +100,10 @@ public class AuthServiceImpl implements AuthService {
                     .processed(false)
                     .build());
         } catch (JsonProcessingException e) {
-            log.error("Failed to serialize verification event", e);
-            throw CustomResponseException.InternalServerError("Internal Server Error during signup");
+            throw CustomResponseException.InternalServerError("Failed to initiate verification");
         }
 
-        metricsProvider.incrementCounter("auth.signup.success");
+        if (metricsProvider != null) metricsProvider.incrementCounter("auth.signup.success");
         return Mapper.toUserResponseDTO(userAccount);
     }
 
@@ -113,23 +111,11 @@ public class AuthServiceImpl implements AuthService {
     @Transactional
     public AuthResponseDTO login(LoginRequestDTO loginRequestDTO) {
         long startTime = System.currentTimeMillis();
-        metricsProvider.incrementCounter("auth.login.request");
-        log.info("Authenticating user: {}", loginRequestDTO.username());
+        if (metricsProvider != null) metricsProvider.incrementCounter("auth.login.request");
 
-        UserAccount userAccount = userAccountRepo.findByUsernameWithLock(loginRequestDTO.username())
-                .orElseThrow(() -> {
-                    metricsProvider.incrementCounter("auth.login.error", "reason", "user_not_found");
-                    return CustomResponseException.BadCredential();
-                });
-
-        if (userAccount.isAccountLocked()) {
-            if (unlockWhenTimeExpired(userAccount)) {
-                log.info("Account unlocked for user: {}", userAccount.getUsername());
-            } else {
-                metricsProvider.incrementCounter("auth.login.error", "reason", "account_locked");
-                throw new LockedException("Account is locked. Try again in " + LOCK_TIME_DURATION + " minutes.");
-            }
-        }
+        // Use the service to handle locking checks in a separate transaction.
+        // This avoids transaction rollback issues if authentication fails later.
+        UserAccount userAccount = loginAttemptService.processPreLogin(loginRequestDTO.username());
 
         try {
             authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(
@@ -137,21 +123,28 @@ public class AuthServiceImpl implements AuthService {
                     loginRequestDTO.password()
             ));
 
-            resetFailedAttempts(userAccount);
+            loginAttemptService.recordSuccess(loginRequestDTO.username());
             AuthResponseDTO response = generateAuthResponse(userAccount);
+
+            // isolated txn: reset attempts, audit, revoke old tokens, save new token
 
             revokeAllUserTokens(userAccount);
             saveUserToken(userAccount, response.accessToken());
 
-            auditLog(userAccount.getUsername(), "LOGIN", "Login successful");
-            metricsProvider.recordExecutionTime("auth.login.time", System.currentTimeMillis() - startTime);
-            metricsProvider.incrementCounter("auth.login.success");
+            loginAttemptService.audit(userAccount.getUsername(), "LOGIN", "Login successful");
+            if (metricsProvider != null) {
+                metricsProvider.recordExecutionTime("auth.login.time", System.currentTimeMillis() - startTime);
+                metricsProvider.incrementCounter("auth.login.success");
+            }
             return response;
 
-        } catch (Exception e) {
-            increaseFailedAttempts(userAccount);
-            auditLog(loginRequestDTO.username(), "FAILED_LOGIN", "Invalid credentials. Attempt " + userAccount.getFailedAttempts());
-            metricsProvider.incrementCounter("auth.login.error", "reason", "bad_credentials");
+        } catch (AuthenticationException e) {
+            // FIX: Use external service to ensure a NEW transaction is used for these updates.
+            // This prevents a TransactionSystemException from hiding the 401 error.
+            loginAttemptService.recordFailedAttempt(loginRequestDTO.username());
+            loginAttemptService.audit(loginRequestDTO.username(), "FAILED_LOGIN", "Invalid credentials");
+            if (metricsProvider != null)
+                metricsProvider.incrementCounter("auth.login.error", "reason", "bad_credentials");
             throw e;
         }
     }
@@ -159,7 +152,6 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public AuthResponseDTO refresh(RefreshTokenRequestDTO refreshTokenRequestDTO) {
-        metricsProvider.incrementCounter("auth.refresh.request");
         String refreshToken = refreshTokenRequestDTO.refreshToken();
         String username = jwtHelper.extractUsername(refreshToken);
 
@@ -167,7 +159,6 @@ public class AuthServiceImpl implements AuthService {
                 .orElseThrow(CustomResponseException::BadCredential);
 
         if (!jwtHelper.isRefreshTokenValid(refreshToken, userAccount)) {
-            metricsProvider.incrementCounter("auth.refresh.error", "reason", "invalid_token");
             throw CustomResponseException.BadCredential();
         }
 
@@ -175,8 +166,6 @@ public class AuthServiceImpl implements AuthService {
         revokeAllUserTokens(userAccount);
         saveUserToken(userAccount, response.accessToken());
 
-        auditLog(username, "REFRESH", "Token refreshed");
-        metricsProvider.incrementCounter("auth.refresh.success");
         return response;
     }
 
@@ -187,25 +176,21 @@ public class AuthServiceImpl implements AuthService {
             @CacheEvict(value = "users", allEntries = true)
     })
     public void logout(String token) {
-        var storedToken = tokenRepo.findByToken(token).orElse(null);
-        if (storedToken != null) {
+        tokenRepo.findByToken(token).ifPresent(storedToken -> {
             storedToken.setExpired(true);
             storedToken.setRevoked(true);
             tokenRepo.save(storedToken);
-            auditLog(storedToken.getUser().getUsername(), "LOGOUT", "Logout successful");
-        }
-        metricsProvider.incrementCounter("auth.logout.success");
+        });
     }
 
     private void saveUserToken(UserAccount userAccount, String jwtToken) {
-        var token = Token.builder()
+        tokenRepo.save(Token.builder()
                 .user(userAccount)
                 .token(jwtToken)
                 .type(Token.TokenType.BEARER)
                 .expired(false)
                 .revoked(false)
-                .build();
-        tokenRepo.save(token);
+                .build());
     }
 
     private void revokeAllUserTokens(UserAccount user) {
@@ -216,46 +201,6 @@ public class AuthServiceImpl implements AuthService {
             token.setRevoked(true);
         });
         tokenRepo.saveAll(validUserTokens);
-    }
-
-    private void auditLog(String username, String action, String details) {
-        auditLogRepo.save(AuditLog.builder()
-                .username(username)
-                .action(action)
-                .details(details)
-                .timestamp(Instant.now())
-                .build());
-    }
-
-    private void increaseFailedAttempts(UserAccount user) {
-        int newFailAttempts = user.getFailedAttempts() + 1;
-        user.setFailedAttempts(newFailAttempts);
-        if (newFailAttempts >= MAX_FAILED_ATTEMPTS) {
-            user.setAccountLocked(true);
-            user.setLockTime(LocalDateTime.now());
-            auditLog(user.getUsername(), "LOCKOUT", "Account locked due to 5 failed attempts");
-        }
-        userAccountRepo.save(user);
-    }
-
-    private void resetFailedAttempts(UserAccount user) {
-        if (user.getFailedAttempts() > 0) {
-            user.setFailedAttempts(0);
-            user.setLockTime(null);
-            userAccountRepo.save(user);
-        }
-    }
-
-    private boolean unlockWhenTimeExpired(UserAccount user) {
-        if (user.getLockTime() != null &&
-                user.getLockTime().plusMinutes(LOCK_TIME_DURATION).isBefore(LocalDateTime.now())) {
-            user.setAccountLocked(false);
-            user.setLockTime(null);
-            user.setFailedAttempts(0);
-            userAccountRepo.save(user);
-            return true;
-        }
-        return false;
     }
 
     private AuthResponseDTO generateAuthResponse(UserAccount userAccount) {

@@ -15,8 +15,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.UUID;
 
-import core.CustomResponseException;
-import io.micrometer.core.annotation.Timed;
+import com.example.shared.core.CustomResponseException;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -40,10 +40,6 @@ public class DepartmentServiceImpl implements DepartmentService {
 
     @Override
     @Transactional(readOnly = true)
-    @Timed(
-            value = "department.find.by.id",
-            description = "Department lookup"
-    )
     @Cacheable(value = "departments", key = "#departmentId")
     public Department findDepartmentById(UUID departmentId) {
         long startTime = System.currentTimeMillis();

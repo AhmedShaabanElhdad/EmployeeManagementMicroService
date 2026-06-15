@@ -9,7 +9,6 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
-import core.CustomResponseException;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 
@@ -21,7 +20,7 @@ public class UserDetailsServiceImpl implements UserDetailsService {
     @Override
     public UserDetails loadUserByUsername(@NonNull String username) throws UsernameNotFoundException {
         UserAccount userAccount = userAccountRepo.findByUsername(username)
-                .orElseThrow(CustomResponseException::BadCredential);
+                .orElseThrow(() -> new UsernameNotFoundException("User not found: " + username));
 
         return User.builder()
                 .username(userAccount.getUsername())

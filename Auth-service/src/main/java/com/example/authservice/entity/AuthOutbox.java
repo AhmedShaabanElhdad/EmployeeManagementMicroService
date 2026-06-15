@@ -35,6 +35,7 @@ public class AuthOutbox {
 
     private Instant processedAt;
 
+    @Builder.Default
     @Column(nullable = false)
     private boolean processed = false;
 }

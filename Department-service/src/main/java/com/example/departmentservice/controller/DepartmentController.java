@@ -3,9 +3,11 @@ package com.example.departmentservice.controller;
 import com.example.departmentservice.abstraction.DepartmentService;
 import com.example.departmentservice.dtos.CreateDepartmentRequest;
 import com.example.departmentservice.entity.Department;
-import core.GlobalResponse;
+import com.example.shared.core.GlobalResponse;
+
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;

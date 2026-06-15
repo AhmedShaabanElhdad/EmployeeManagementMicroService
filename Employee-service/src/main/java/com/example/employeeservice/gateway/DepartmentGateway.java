@@ -3,10 +3,13 @@ package com.example.employeeservice.gateway;
 import com.example.employeeservice.dtos.DepartmentResponse;
 import com.example.shared.grpc.DepartmentGrpcServiceGrpc;
 import com.example.shared.grpc.DepartmentRequest;
-import core.GlobalResponse;
+import com.example.shared.core.GlobalResponse;
+
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import lombok.RequiredArgsConstructor;
+
 import net.devh.boot.grpc.client.inject.GrpcClient;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -25,7 +28,7 @@ public class DepartmentGateway {
             fallbackMethod = "departmentFallback"
     )
     public ResponseEntity<GlobalResponse<DepartmentResponse>> getDepartment(UUID departmentId) {
-        
+
         DepartmentRequest request = DepartmentRequest.newBuilder()
                 .setDepartmentId(departmentId.toString())
                 .build();
