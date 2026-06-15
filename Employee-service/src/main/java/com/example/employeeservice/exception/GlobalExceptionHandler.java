@@ -22,8 +22,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(CustomResponseException.class)
     public ResponseEntity<GlobalResponse<?>> handleCustomResponseException(CustomResponseException ex) {
         log.warn("Custom exception: {}", ex.getMessage());
-        var errors = List.of(new GlobalResponse.ErrorItem(ex.getMessage()));
-        return new ResponseEntity<>(new GlobalResponse<>(ex.getCode(), errors), HttpStatus.valueOf(ex.getCode()));
+        return new ResponseEntity<>(GlobalResponse.failure(ex.getCode(), ex.getMessage()), HttpStatus.valueOf(ex.getCode()));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -31,40 +30,35 @@ public class GlobalExceptionHandler {
         var errors = ex.getBindingResult().getAllErrors().stream().map(error ->
                 new GlobalResponse.ErrorItem(error.getObjectName() + " : " + error.getDefaultMessage())
         ).toList();
-        return new ResponseEntity<>(new GlobalResponse<>(400, errors), HttpStatus.BAD_REQUEST);
+        return new ResponseEntity<>(GlobalResponse.failure(400, errors), HttpStatus.BAD_REQUEST);
     }
 
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public ResponseEntity<GlobalResponse<?>> handleMaxSizeException(MaxUploadSizeExceededException exc) {
-        var errors = List.of(new GlobalResponse.ErrorItem("File too large! Maximum upload size is 10MB."));
-        return new ResponseEntity<>(new GlobalResponse<>(413, errors), HttpStatus.PAYLOAD_TOO_LARGE);
+        return new ResponseEntity<>(GlobalResponse.failure(413, "File too large! Maximum upload size is 10MB."), HttpStatus.PAYLOAD_TOO_LARGE);
     }
 
     @ExceptionHandler(FeignException.class)
     public ResponseEntity<GlobalResponse<?>> handleFeignException(FeignException ex) {
         log.error("Feign communication error", ex);
-        var errors = List.of(new GlobalResponse.ErrorItem("Service communication error"));
         int status = ex.status() != -1 ? ex.status() : 503;
-        return new ResponseEntity<>(new GlobalResponse<>(status, errors), HttpStatus.valueOf(status));
+        return new ResponseEntity<>(GlobalResponse.failure(status, "Service communication error"), HttpStatus.valueOf(status));
     }
 
     @ExceptionHandler(TimeoutException.class)
     public ResponseEntity<GlobalResponse<?>> handleTimeoutException(TimeoutException ex) {
-        var errors = List.of(new GlobalResponse.ErrorItem("Request timed out."));
-        return new ResponseEntity<>(new GlobalResponse<>(408, errors), HttpStatus.REQUEST_TIMEOUT);
+        return new ResponseEntity<>(GlobalResponse.failure(408, "Request timed out."), HttpStatus.REQUEST_TIMEOUT);
     }
 
     @ExceptionHandler(CallNotPermittedException.class)
     public ResponseEntity<GlobalResponse<?>> handleCircuitBreakerException(CallNotPermittedException ex) {
-        var errors = List.of(new GlobalResponse.ErrorItem("Service is temporarily unavailable (Circuit Breaker open)."));
-        return new ResponseEntity<>(new GlobalResponse<>(503, errors), HttpStatus.SERVICE_UNAVAILABLE);
+        return new ResponseEntity<>(GlobalResponse.failure(503, "Service is temporarily unavailable (Circuit Breaker open)."), HttpStatus.SERVICE_UNAVAILABLE);
     }
     
     @ExceptionHandler(Exception.class)
     public ResponseEntity<GlobalResponse<?>> handleGeneralException(Exception ex) {
         log.error("Unhandled exception occurred", ex);
         String message = (ex != null && ex.getMessage() != null) ? ex.getMessage() : "An unexpected error occurred";
-        var errors = List.of(new GlobalResponse.ErrorItem(message));
-        return new ResponseEntity<>(new GlobalResponse<>(500, errors), HttpStatus.INTERNAL_SERVER_ERROR);
+        return new ResponseEntity<>(GlobalResponse.failure(500, message), HttpStatus.INTERNAL_SERVER_ERROR);
     }
 }

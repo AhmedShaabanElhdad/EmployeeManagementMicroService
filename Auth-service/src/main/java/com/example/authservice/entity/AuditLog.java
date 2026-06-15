@@ -2,6 +2,7 @@ package com.example.authservice.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UuidGenerator;
 
 import java.time.Instant;
@@ -26,7 +27,8 @@ public class AuditLog {
 
     private String details;
 
-    @Column(nullable = false)
+    @CreationTimestamp
+    @Column(nullable = false, updatable = false)
     private Instant timestamp;
 
     private String ipAddress;

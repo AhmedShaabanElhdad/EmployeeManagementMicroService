@@ -2,7 +2,7 @@ package com.example.authservice.exception;
 
 import com.example.shared.core.CustomResponseException;
 import com.example.shared.core.GlobalResponse;
-import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -12,7 +12,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-import java.util.List;
+import lombok.extern.slf4j.Slf4j;
 
 @RestControllerAdvice
 @Slf4j
@@ -21,8 +21,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(CustomResponseException.class)
     public ResponseEntity<GlobalResponse<?>> handleCustomResponseException(CustomResponseException ex) {
         log.warn("Custom exception: {}", ex.getMessage());
-        var errors = List.of(new GlobalResponse.ErrorItem(ex.getMessage()));
-        return new ResponseEntity<>(new GlobalResponse<>(ex.getCode(), errors), HttpStatus.valueOf(ex.getCode()));
+        return new ResponseEntity<>(GlobalResponse.failure(ex.getCode(), ex.getMessage()), HttpStatus.valueOf(ex.getCode()));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -35,30 +34,27 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(BadCredentialsException.class)
     public ResponseEntity<GlobalResponse<?>> handleBadCredentialsException(BadCredentialsException ex) {
-        log.warn("Bad credentials attempt: {}", ex.getMessage());
-        var errors = List.of(new GlobalResponse.ErrorItem("Invalid username or password"));
-        return new ResponseEntity<>(new GlobalResponse<>(401, errors), HttpStatus.UNAUTHORIZED);
+        log.warn("Bad credentials attempt");
+        return new ResponseEntity<>(GlobalResponse.failure(401, "Invalid username or password"), HttpStatus.UNAUTHORIZED);
     }
 
     @ExceptionHandler(InternalAuthenticationServiceException.class)
     public ResponseEntity<GlobalResponse<?>> handleInternalAuthException(InternalAuthenticationServiceException ex) {
         log.error("Internal Auth Error: ", ex);
-        var errors = List.of(new GlobalResponse.ErrorItem("Authentication service error: " + (ex.getCause() != null ? ex.getCause().getMessage() : ex.getMessage())));
-        return new ResponseEntity<>(new GlobalResponse<>(500, errors), HttpStatus.INTERNAL_SERVER_ERROR);
+        String msg = (ex.getCause() != null) ? ex.getCause().getMessage() : ex.getMessage();
+        return new ResponseEntity<>(GlobalResponse.failure(500, "Authentication service error: " + msg), HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<GlobalResponse<?>> handleAuthenticationException(AuthenticationException ex) {
         log.warn("Authentication failure: {}", ex.getMessage());
-        var errors = List.of(new GlobalResponse.ErrorItem(ex.getMessage()));
-        return new ResponseEntity<>(new GlobalResponse<>(401, errors), HttpStatus.UNAUTHORIZED);
+        return new ResponseEntity<>(GlobalResponse.failure(401, ex.getMessage()), HttpStatus.UNAUTHORIZED);
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<GlobalResponse<?>> handleGeneralException(Exception ex) {
         log.error("Unhandled exception occurred", ex);
         String message = (ex != null && ex.getMessage() != null) ? ex.getMessage() : "An unexpected internal error occurred";
-        var errors = List.of(new GlobalResponse.ErrorItem(message));
-        return new ResponseEntity<>(new GlobalResponse<>(500, errors), HttpStatus.INTERNAL_SERVER_ERROR);
+        return new ResponseEntity<>(GlobalResponse.failure(500, message), HttpStatus.INTERNAL_SERVER_ERROR);
     }
 }

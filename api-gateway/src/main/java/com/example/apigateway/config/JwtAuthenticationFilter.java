@@ -37,10 +37,8 @@ public class JwtAuthenticationFilter implements WebFilter {
             metricsProvider.incrementCounter("gateway.request.received", "path", path, "method", method);
         }
 
-        log.info("Incoming request {} {}", method, exchange.getRequest().getURI());
-
-        // Skip JWT validation for public endpoints and fallbacks
-        if (path.startsWith("/api/v1/auth/") || path.startsWith("/fallback/")) {
+        // Skip JWT validation for public endpoints, fallbacks and actuator
+        if (isPublicPath(path)) {
             return chain.filter(exchange);
         }
 
@@ -75,8 +73,16 @@ public class JwtAuthenticationFilter implements WebFilter {
                     if (status != null && metricsProvider != null) {
                         metricsProvider.recordExecutionTime("gateway.request.processing.time",
                                 System.currentTimeMillis() - startTime, "path", path, "status", status.toString());
-                        log.info("Response status: {}", status);
                     }
                 }));
+    }
+
+    private boolean isPublicPath(String path) {
+        return path.startsWith("/api/v1/auth/") || 
+               path.startsWith("/fallback/") || 
+               path.startsWith("/actuator/") ||
+               path.startsWith("/v3/api-docs") ||
+               path.startsWith("/webjars/") ||
+               path.startsWith("/swagger-ui");
     }
 }

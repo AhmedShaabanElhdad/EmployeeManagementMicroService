@@ -32,7 +32,7 @@ public class SecurityConfig {
                         .authenticationEntryPoint((exchange, authEx) -> Mono.error(authEx))
                 )
                 .authorizeExchange(authorize -> authorize
-                        .pathMatchers("/api/v1/auth/**", "/fallback/**").permitAll()
+                        .pathMatchers("/api/v1/auth/**", "/fallback/**", "/actuator/**").permitAll()
                         .pathMatchers("/swagger-ui/**",  "/swagger-ui.html", "/v3/api-docs/**", "/*/v3/api-docs/**","/webjars/**").permitAll()
                         .pathMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .pathMatchers("/api/v1/employees/**").authenticated()
